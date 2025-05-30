@@ -1,0 +1,8 @@
+{
+  "domain": "badgereader",
+  "name": "NFC Badge Reader",
+  "documentation": "https://github.com/your_username/badgereader",
+  "dependencies": [],
+  "codeowners": ["@your_username"],
+  "requirements": []
+}
