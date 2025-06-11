@@ -4,5 +4,6 @@
   "documentation": "https://github.com/your_username/badgereader",
   "dependencies": [],
   "codeowners": ["@your_username"],
-  "requirements": []
+  "requirements": [],
+  "issue_tracker": "https://github.com/your_username/badgereader/issues"
 }

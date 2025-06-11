@@ -12,7 +12,7 @@ from homeassistant.helpers.update_coordinator import (
     UpdateFailed,
 )
 
-from .api import UfrNanoOnlineApi
+from .api import UfrReaderApi
 from .const import DOMAIN, LOGGER, READER_STATUS_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
@@ -24,7 +24,7 @@ class UfrNanoOnlineCoordinator(DataUpdateCoordinator):
     def __init__(
         self,
         hass: HomeAssistant,
-        api: UfrNanoOnlineApi,
+        api: UfrReaderApi,
         reader_ip: str,
         reader_port: int,
     ) -> None:

@@ -7,7 +7,7 @@ from homeassistant.components import webhook
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 
-from .const import DOMAIN
+from custom_components.badgereader.const import DOMAIN # Changed to absolute import
 
 async def test_webhook_receives_data(hass: HomeAssistant, hass_client) -> None:
     """Test the webhook receives and processes data."""

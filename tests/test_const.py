@@ -4,7 +4,7 @@ import pytest
 # Import all constants from const.py for testing
 from custom_components.badgereader.const import (
     DOMAIN,
-    CONF_CARD_UID,
+    CONF_NFC_UID, # Changed from CONF_CARD_UID
     CONF_READER_IP,
     CONF_GOOGLE_SHEET_ID,
     SERVICE_GENERATE_MONTHLY_REPORT,
@@ -32,7 +32,7 @@ def test_constants_exist_and_are_strings():
     """Test that essential constants are defined and are strings."""
     assert isinstance(DOMAIN, str)
     assert DOMAIN == "badgereader"
-    assert isinstance(CONF_CARD_UID, str)
+    assert isinstance(CONF_NFC_UID, str) # Changed from CONF_CARD_UID
     assert isinstance(CONF_READER_IP, str)
     assert isinstance(CONF_GOOGLE_SHEET_ID, str)
     assert isinstance(SERVICE_GENERATE_MONTHLY_REPORT, str)
@@ -50,7 +50,7 @@ def test_constants_exist_and_are_strings():
 
 def test_configuration_keys_are_lowercase():
     """Test that configuration keys are in lowercase."""
-    assert CONF_CARD_UID.islower()
+    assert CONF_NFC_UID.islower() # Changed from CONF_CARD_UID
     assert CONF_READER_IP.islower()
     assert CONF_GOOGLE_SHEET_ID.islower()
     assert CONF_READER_PORT.islower()

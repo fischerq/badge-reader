@@ -19,3 +19,4 @@ def send_shift_summary_email(sender_email, sender_password, recipient_email, sub
         _LOGGER.info("Shift summary email sent successfully")
     except Exception as e:
         _LOGGER.error("Failed to send shift summary email: %s", e)
+        raise # Re-raise the exception

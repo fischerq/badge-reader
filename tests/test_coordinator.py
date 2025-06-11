@@ -5,12 +5,12 @@ import pytest
 
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from custom_components.badgereader.coordinator import BadgeReaderCoordinator
+from custom_components.badgereader.coordinator import UfrNanoOnlineCoordinator # Corrected import
 
 
 @pytest.fixture
 def mock_coordinator(hass):
-    """Mock BadgeReaderCoordinator."""
+    """Mock UfrNanoOnlineCoordinator.""" # Corrected docstring
     with patch(
         "custom_components.badgereader.coordinator.DataUpdateCoordinator",
         spec=DataUpdateCoordinator,

@@ -29,30 +29,42 @@ def test_generate_monthly_report():
     mock_path = "/fake/report/path/monthly_report_may_2025.pdf"
 
     # Patch the PDF generation library's core objects/functions
-    # Adjust 'reportlab.pdfgen.canvas.Canvas' and 'reportlab.lib.pagesizes.letter'
-    # to match the actual components you use from your chosen PDF library
-    with patch('reportlab.pdfgen.canvas.Canvas') as mock_canvas_class, \
-         patch('reportlab.lib.pagesizes.letter') as mock_pagesize:
+    # Patch the reportlab components where they are defined and imported from
+    with patch('custom_components.badgereader.pdf.SimpleDocTemplate') as MockSimpleDocTemplate, \
+         patch('custom_components.badgereader.pdf.Paragraph') as MockParagraph, \
+         patch('custom_components.badgereader.pdf.getSampleStyleSheet') as MockGetSampleStyleSheet, \
+         patch('custom_components.badgereader.pdf.letter', (612.0, 792.0)) as mock_letter, \
+         patch('builtins.open', new_callable=MagicMock) as mock_open:
 
-        mock_canvas_instance = MagicMock()
-        mock_canvas_class.return_value = mock_canvas_instance
-        mock_pagesize.return_value = (612, 792)  # Mock page size
+        # Configure getSampleStyleSheet mock
+        mock_styles = MagicMock()
+        mock_styles.__getitem__.return_value = MagicMock() # So that styles['h1'], styles['Normal'] etc. work
+        MockGetSampleStyleSheet.return_value = mock_styles
+
+        # Mock the instance of SimpleDocTemplate and its build method
+        mock_doc_instance = MagicMock()
+        MockSimpleDocTemplate.return_value = mock_doc_instance
+
+        # Configure mock_open to simulate a file
+        mock_file = MagicMock()
+        mock_open.return_value.__enter__.return_value = mock_file
 
         generate_monthly_report(mock_data, mock_path)
 
-        # Verify that the PDF generation function was called
-        mock_canvas_class.assert_called_once_with(mock_path, pagesize=mock_pagesize.return_value)
+        # Verify that SimpleDocTemplate was instantiated
+        MockSimpleDocTemplate.assert_called_once_with(mock_path, pagesize=(612.0, 792.0))
 
-        # Verify that key methods on the canvas instance were called
-        # These checks depend heavily on how your generate_monthly_report function
-        # interacts with the canvas object. Adjust as necessary.
-        mock_canvas_instance.drawString.assert_called() # Check if text was drawn
-        mock_canvas_instance.save.assert_called_once() # Check if save was called
+        # Verify that Paragraph was called (used for title and other data)
+        MockParagraph.assert_called()
 
-        # Example of a more specific check (adjust coordinates and content based on your implementation)
-        # mock_canvas_instance.drawString.assert_any_call(100, 750, "Monthly Report: May 2025")
-        # mock_canvas_instance.drawString.assert_any_call(50, 650, "Hours Balance at Start of Month: +5.00 hrs")
+        # Verify getSampleStyleSheet was called
+        MockGetSampleStyleSheet.assert_called_once()
 
-    # You might want to add more specific assertions here to check the content
-    # and layout if your mocking allows for inspecting the arguments passed
-    # to methods like drawString, drawTable, etc.
+        # Verify that the build method was called on the SimpleDocTemplate instance
+        mock_doc_instance.build.assert_called_once()
+
+        # builtins.open is patched to prevent actual file writes. We don't assert
+        # its call when SimpleDocTemplate is fully mocked, as the mock's 'build'
+        # method won't trigger the actual file saving sequence that calls 'open'.
+        # The patch primarily serves as a safety net.
+        # mock_open.assert_called_once_with(mock_path, "wb")
