@@ -1,0 +1,17 @@
+name: "NFC Badge Reader Addon"
+description: "Reads NFC badges and integrates with Home Assistant"
+version: "1.0.0" # Will be updated from manifest.json later
+slug: "badgereader_addon"
+init: false
+arch:
+  - aarch64
+  - amd64
+  - armhf
+  - armv7
+  - i386
+startup: services
+boot: auto
+ports:
+  5000/tcp: 5000 # Assuming the API runs on port 5000, will verify this later
+options: {}
+schema: {}

@@ -1,10 +1,10 @@
 {
   "domain": "badgereader",
   "name": "NFC Badge Reader",
-  "documentation": "https://github.com/your_username/badgereader",
+  "version": "1.0.0",
+  "documentation": "https://github.com/hassio-addons/addon-badgereader",
   "dependencies": [],
-  "codeowners": ["@your_username"],
   "requirements": [],
-  "issue_tracker": "https://github.com/your_username/badgereader/issues",
+  "issue_tracker": "https://github.com/hassio-addons/addon-badgereader/issues",
   "panel_iframe": { "module_url": "/api/panel_custom/badgereader" }
 }
