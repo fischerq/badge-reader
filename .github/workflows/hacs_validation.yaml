@@ -1,0 +1,19 @@
+name: HACS Validation
+
+on: [push, pull_request]
+
+jobs:
+  validate-hacs:
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: Checkout repository
+        uses: "actions/checkout@v3"
+      - name: HACS Validation
+        uses: "hacs/action@main"
+        with:
+          category: "integration"
+          # You might need to adjust or remove the 'ignore' based on your repo structure and HACS best practices
+          # For example, if 'brands' directory is not part of your HACS component structure or causes issues.
+          # ignore: "brands"
+      - name: Hassfest Validation
+        uses: "home-assistant/actions/hassfest@master"
