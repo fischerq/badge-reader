@@ -8,7 +8,7 @@ from custom_components.badgereader.const import DOMAIN
 
 # Path to the services.yaml file
 SERVICES_FILE_PATH = os.path.join(
-    os.path.dirname(__file__), "..", DOMAIN, "services.yaml"
+    "custom_components", DOMAIN, "services.yaml" # Corrected path
 )
 
 

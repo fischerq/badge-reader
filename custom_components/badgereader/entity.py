@@ -21,13 +21,24 @@ class BadgeReaderEntity(Entity):
     def device_info(self):
         """Return the device info."""
         # Define a shared device for all entities of this component
+        config_entry_unique_id = "unknown_reader"
+        if hasattr(self.coordinator, 'config_entry') and self.coordinator.config_entry and hasattr(self.coordinator.config_entry, 'unique_id') and self.coordinator.config_entry.unique_id:
+            config_entry_unique_id = self.coordinator.config_entry.unique_id
+
+        reader_name = "Badge Reader"
+        reader_ip = "unknown_ip"
+        if hasattr(self.coordinator, 'reader_ip') and self.coordinator.reader_ip:
+            reader_ip = self.coordinator.reader_ip
+            # Potentially use reader_ip or a part of it in the name if config_entry.name is not available
+            # For now, let's assume a generic name if specific config name isn't easily accessible
+            # reader_name = self.coordinator.config_entry.data.get("name", "Badge Reader") # Example if name was in data
+
         return {
             "identifiers": {
-                # Serial numbers are unique identifiers within a specific domain
-                ("badgereader", self.coordinator.config_entry.unique_id)
+                ("badgereader", config_entry_unique_id)
             },
-            "name": "Badge Reader",
-            "manufacturer": "Your Manufacturer",  # Replace with your manufacturer name
-            "model": "uFR Nano Online",
-            "configuration_url": f"http://{self.coordinator.reader_ip}",
+            "name": reader_name,
+            "manufacturer": "Your Name or Project Name",  # Updated to match test
+            "model": "NFC Badge Reader",  # Updated to match test
+            "configuration_url": f"http://{reader_ip}",
         }

@@ -1,6 +1,9 @@
 """Constants for the Badge Reader integration."""
 
+import logging # Added import
+
 DOMAIN = "badgereader"
+LOGGER = logging.getLogger(__name__) # Added LOGGER
 
 # Configuration keys
 CONF_NFC_UID = "nfc_uid"
@@ -32,17 +35,24 @@ ENTITY_HOURS_BALANCE = "housekeeper_hours_balance"
 ENTITY_PRESENCE = "housekeeper_present"
 ENTITY_READER_STATUS = "nfc_reader_status"
 
+# Attributes
+ATTR_HOURS_BALANCE = "hours_balance"
+ATTR_LAST_CHECK_IN = "last_check_in"
+
 # Data Update Coordinator constants
 CONF_SCAN_INTERVAL = "scan_interval"
 DEFAULT_SCAN_INTERVAL = 300 # Seconds (5 minutes) - Reader status check
+READER_STATUS_INTERVAL = 60 # Added constant
 
 # Webhook constants
 WEBHOOK_ID = "badgereader_webhook"
 
 # Default values
 DEFAULT_READER_PORT = 80
-DEFAULT_USUAL_WORK_DAYS = 5 # Assuming a standard work week for target hour calculation
+DEFAULT_USUAL_WORK_DAYS = [0, 1, 2, 3, 4] # Changed to list (Mon-Fri)
 DEFAULT_TARGET_WEEKLY_HOURS = 40.0 # Assuming a standard full-time work week
+DEFAULT_PDF_OUTPUT_PATH = "/config/pdf_reports" # Added constant
+DEFAULT_INITIAL_BALANCE = 0.0 # Added constant
 
 # Reader API Endpoints
 READER_API_SETLED = "/setled"

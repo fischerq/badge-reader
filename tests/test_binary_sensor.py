@@ -4,8 +4,7 @@ from unittest.mock import patch
 import pytest
 
 from homeassistant.core import HomeAssistant
-
-from tests.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 
 async def test_binary_sensor_setup(hass: HomeAssistant) -> None:

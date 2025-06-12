@@ -11,7 +11,9 @@ def generate_monthly_report(data, output_path):
         data (dict): A dictionary containing report data.
         output_path (str): The path to save the generated PDF.
     """
+    print("DEBUG: Before SimpleDocTemplate call")
     doc = SimpleDocTemplate(output_path, pagesize=letter)
+    print("DEBUG: After SimpleDocTemplate call")
     styles = getSampleStyleSheet()
     story = []
 
