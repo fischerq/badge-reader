@@ -2,9 +2,12 @@
   "domain": "badgereader",
   "name": "NFC Badge Reader",
   "version": "1.0.0",
-  "documentation": "https://github.com/hassio-addons/addon-badgereader",
+  "documentation": "https://github.com/fischerq/badge-reader",
   "dependencies": [],
   "requirements": [],
-  "issue_tracker": "https://github.com/hassio-addons/addon-badgereader/issues",
-  "panel_iframe": { "module_url": "/api/panel_custom/badgereader" }
+  "issue_tracker": "https://github.com/fischerq/badge-reader/issues",
+  "panel_iframe": { "module_url": "/api/panel_custom/badgereader" },
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "codeowners": ["@fischerq"]
 }
