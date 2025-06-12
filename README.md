@@ -1,5 +1,7 @@
 # Home Assistant NFC Badge Reader & Time Keeping System
 
+[![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg)](https://github.com/custom-components/hacs)
+
 This project provides a Home Assistant custom component that integrates a µFR Nano Online NFC reader with Home Assistant and Google Sheets for automated timekeeping, specifically designed for tracking housekeeper work hours.
 
 Utilizing the µFR Nano Online's HTTP REST API, the system allows a housekeeper to clock in and out by simply tapping an NFC card to the reader. These events are processed by Home Assistant, automatically logged to a shared Google Sheet (which tracks a running hours balance), and can optionally trigger email notifications.

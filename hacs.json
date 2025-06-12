@@ -1,0 +1,7 @@
+{
+  "name": "NFC Badge Reader",
+  "render_readme": true,
+  "domains": ["sensor", "binary_sensor"],
+  "country": ["US", "GB"],
+  "homeassistant": "2023.1.0"
+}
