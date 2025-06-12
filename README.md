@@ -56,6 +56,7 @@ Configuration is done via `configuration.yaml` or potentially a Config Flow UI i
     *   Configure Wi-Fi to connect to your local network. Assign a static IP address via DHCP reservation on your router or use a reliable mDNS hostname.
     *   Crucially, configure the reader to send an HTTP POST request to your Home Assistant webhook URL whenever a card is scanned. The specific configuration steps vary slightly depending on the reader's firmware, but typically involves setting a "Target Host" and enabling "POST on card scan". The payload should include the card's UID (often as JSON, e.g., `{"uid": "..."}`).
     *   You will get the Home Assistant webhook URL from the component's logs or UI once configured in HA.
+    *   Note: The badging requests from the reader to Home Assistant are handled via this Home Assistant-managed webhook. The `ports: 5000/tcp: 5000` entry sometimes seen in `badgereader_addon/config.yaml` is for a different purpose (e.g., local development or direct API access to the addon if implemented) and is **not** used for receiving these badging requests from the reader.
 2.  **Set up Google Sheets API:**
     *   Follow the Google Cloud documentation to enable the Google Sheets API and create a service account.
     *   Download the service account JSON key file.
