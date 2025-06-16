@@ -32,7 +32,7 @@ Utilizing the µFR Nano Online's HTTP REST API, the system allows a housekeeper 
 *   Home Assistant host and µFR Nano Online reader on the same local network.
 *   The µFR Nano Online reader must be configured to send HTTP POST requests to a Home Assistant webhook URL upon card scans (see Configuration).
 
-## Installation
+## Installation (Custom Component via HACS)
 
 This component is designed to be installed via **Home Assistant Community Store (HACS)**.
 
@@ -46,6 +46,18 @@ This component is designed to be installed via **Home Assistant Community Store 
     *   Search for "NFC Badge Reader" or similar in the HACS Integrations list.
     *   Click on the integration and select "Download".
     *   Restart Home Assistant.
+
+## Add-on Installation
+
+[![Open your Home Assistant instance and open the repository in the Supervisor Add-on Store.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Faddon-user%2Faddon-repo)
+
+1. Go to your Home Assistant instance.
+2. In the sidebar, click on "Supervisor" (or "Settings" > "Add-ons" if Supervisor is not directly visible).
+3. Click on the "Add-on store" button in the top right.
+4. Click on the three dots in the top right corner and select "Repositories".
+5. In the "Manage add-on repositories" dialog, paste the URL `https://github.com/addon-user/addon-repo` and click "Add".
+6. Close the dialog and refresh the page.
+7. The "BadgeReader Add-on Repository" should now be visible in the Add-on store, and the "BadgeReader Add-on" should be available to install.
 
 ## Configuration
 
@@ -62,4 +74,3 @@ Configuration is done via `configuration.yaml` or potentially a Config Flow UI i
     *   Download the service account JSON key file.
     *   Share your Google Sheet with the email address of the service account.
 3.  **Add configuration to `configuration.yaml`:**
-
