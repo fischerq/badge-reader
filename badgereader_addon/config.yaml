@@ -1,5 +1,5 @@
 name: "NFC Badge Reader Addon"
-description: "Reads NFC badges and integrates with Home Assistant"
+description: "Integrates a µFR Nano Online NFC reader with Home Assistant and Google Sheets for automated timekeeping."
 version: "1.0.0" # Will be updated from manifest.json later
 slug: "badgereader_addon"
 init: false
