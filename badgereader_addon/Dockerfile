@@ -5,7 +5,7 @@ FROM $BUILD_FROM
 WORKDIR /usr/src/app
 
 # Copy the custom component files
-COPY ../custom_components/badgereader ./custom_components/badgereader
+COPY badgereader ./custom_components/badgereader
 
 # Install Python dependencies (if any are specified in requirements.txt)
 # Assuming requirements.txt might be added later at the root or within the custom_component
