@@ -2,11 +2,16 @@
 
 bashio::log.info "NFC Badge Reader Addon starting..."
 
-# The addon itself doesn't run a separate server.
-# Home Assistant Core loads the custom component.
-# This script just needs to keep the container running.
-# Loop forever, printing a message periodically.
+# Start the Python HTTP server
+bashio::log.info "Starting Python HTTP server for badge messages..."
+python3 /badgereader_addon/server.py
+
+# If server.py exits, log it and keep container alive for debugging if needed,
+# though ideally server.py runs forever.
+bashio::log.warning "Python HTTP server exited."
+bashio::log.info "Container will sleep indefinitely to allow inspection if server exited unexpectedly."
+
+# Loop forever to keep the container running if the python script exits
 while true; do
-  bashio::log.debug "NFC Badge Reader Addon is running..."
   sleep 3600 # Sleep for an hour
 done
