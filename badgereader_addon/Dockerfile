@@ -1,11 +1,13 @@
-ARG BUILD_FROM="ubuntu:latest"
-FROM ${BUILD_FROM}
+ARG BUILD_FROM
+FROM $BUILD_FROM
+
+# Install requirements for add-on
+RUN \
+  apk add --no-cache \
+      python3
 
 # Set the working directory
 WORKDIR /usr/src/app
-
-# Install Python dependencies
-RUN apt-get update && apt-get install -y python3 python3-pip
 
 # Copy the custom component files
 COPY badgereader ./custom_components/badgereader
