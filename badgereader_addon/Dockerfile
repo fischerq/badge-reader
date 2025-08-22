@@ -1,5 +1,5 @@
-ARG BUILD_FROM
-FROM $BUILD_FROM
+ARG BUILD_FROM="ubuntu:latest"
+FROM ${BUILD_FROM}
 
 # Set the working directory
 WORKDIR /usr/src/app
