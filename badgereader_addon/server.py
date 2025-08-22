@@ -6,7 +6,7 @@ import os
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-PORT = 5000
+PORT = 5060
 
 class BadgeRequestHandler(http.server.BaseHTTPRequestHandler):
     def do_POST(self):

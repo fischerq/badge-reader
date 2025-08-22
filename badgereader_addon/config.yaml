@@ -12,6 +12,6 @@ arch:
 startup: services
 boot: auto
 ports:
-  5000/tcp: 5000 # HTTP server for badge messages runs on port 5000
+  5060/tcp: 5060 # HTTP server for badge messages runs on port 5060
 options: {}
 schema: {}
