@@ -2,7 +2,12 @@
 
 bashio::log.info "NFC Badge Reader Addon starting..."
 
+bashio::log.info "Workdir $PWD"
+
 find . | bashio::log.info
+
+find / | bashio::log.info
+
 
 # Start the Python HTTP server
 bashio::log.info "Starting Python HTTP server for badge messages..."

@@ -6,9 +6,6 @@ RUN \
   apk add --no-cache \
     python3
 
-# Set the working directory
-WORKDIR /usr/src/app
-
 # Copy source
 COPY badgereader / 
 
