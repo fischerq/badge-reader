@@ -4,7 +4,7 @@ bashio::log.info "NFC Badge Reader Addon starting..."
 
 # Start the Python HTTP server
 bashio::log.info "Starting Python HTTP server for badge messages..."
-python3 /badgereader_addon/server.py
+python /badgereader_addon/server.py
 
 # If server.py exits, log it and keep container alive for debugging if needed,
 # though ideally server.py runs forever.
