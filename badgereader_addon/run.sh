@@ -6,7 +6,7 @@ ls
 
 # Start the Python HTTP server
 bashio::log.info "Starting Python HTTP server for badge messages..."
-python /badgereader_addon/server.py
+python3 /badgereader_addon/server.py
 
 # If server.py exits, log it and keep container alive for debugging if needed,
 # though ideally server.py runs forever.
