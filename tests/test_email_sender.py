@@ -1,9 +1,9 @@
 import pytest
 from unittest.mock import patch, MagicMock
 
-from custom_components.badgereader.email import send_shift_summary_email
+from custom_components.badgereader.email_sender import send_shift_summary_email
 
-@patch("custom_components.badgereader.email.smtplib.SMTP_SSL") # Changed to SMTP_SSL
+@patch("custom_components.badgereader.email_sender.smtplib.SMTP_SSL") # Changed to SMTP_SSL
 def test_send_shift_summary_email(mock_smtp_ssl): # Changed mock name
     """Test the send_shift_summary_email function."""
     mock_server = MagicMock()
@@ -61,7 +61,7 @@ Current Hours Balance: +5.00
     assert expected_subject in sent_message
     assert expected_body.strip() in sent_message
 
-@patch("custom_components.badgereader.email.smtplib.SMTP_SSL") # Changed to SMTP_SSL
+@patch("custom_components.badgereader.email_sender.smtplib.SMTP_SSL") # Changed to SMTP_SSL
 def test_send_shift_summary_email_failure(mock_smtp_ssl): # Changed mock name
     """Test send_shift_summary_email handles exceptions."""
     mock_server = MagicMock()

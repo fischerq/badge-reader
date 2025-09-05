@@ -11,8 +11,8 @@ COPY badgereader /
 
 # Install Python dependencies (if any are specified in requirements.txt)
 # Assuming requirements.txt might be added later at the root or within the custom_component
-# COPY requirements.txt .
-# RUN pip install --no-cache-dir -r requirements.txt
+ COPY requirements.txt /
+ RUN pip install --no-cache-dir -r /requirements.txt
 
 # Copy run.sh script
 COPY run.sh /

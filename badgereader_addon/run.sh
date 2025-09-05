@@ -4,15 +4,15 @@ bashio::log.info "NFC Badge Reader Addon starting..."
 
 bashio::log.info "Workdir $PWD"
 
-cat server.py
-
-cat server.py | bashio::log.info
+bashio::log.info "--- Start of server.py content ---"
+bashio::log.info "$(cat /server.py)"
+bashio::log.info "--- End of server.py content ---"
 
 bashio::log.info "Hello1"
 
 # Start the Python HTTP server
 bashio::log.info "Starting Python HTTP server for badge messages..."
-python3 server.py
+python3 /server.py
 bashio::log.info "Hello2"
 
 # If server.py exits, log it and keep container alive for debugging if needed,
