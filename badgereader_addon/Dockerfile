@@ -5,7 +5,7 @@ FROM $BUILD_FROM
 RUN \
   apk add --no-cache \
     python3 \
-    pip
+    py3-pip
 
 # Copy source
 COPY badgereader / 
