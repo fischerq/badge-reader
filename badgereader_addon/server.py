@@ -2,6 +2,7 @@ import http.server
 import socketserver
 import logging
 import os
+from urllib.parse import parse_qs
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -23,17 +24,17 @@ class BadgeRequestHandler(http.server.BaseHTTPRequestHandler):
             decoded_data = post_data.decode('utf-8')
             logging.debug("Raw Body:\n%s", decoded_data)
 
-            # Attempt to parse as JSON, similar to handle_webhook
-            import json
+            # The data is URL-encoded, not JSON
             try:
-                data = json.loads(decoded_data)
-                card_uid = data.get("uid")
+                data = parse_qs(decoded_data)
+                card_uid_list = data.get("UID")
 
-                if not card_uid:
-                    logging.warning("Received data with no 'uid' field: %s", data)
+                if not card_uid_list:
+                    logging.warning("Received data with no 'UID' field: %s", data)
                     response_code = 400
-                    response_message = "Missing 'uid' in payload"
+                    response_message = "Missing 'UID' in payload"
                 else:
+                    card_uid = card_uid_list[0]
                     logging.info("Extracted card UID: %s", card_uid)
 
                     # Placeholder for comparing with a configured UID
@@ -51,10 +52,10 @@ class BadgeRequestHandler(http.server.BaseHTTPRequestHandler):
                     #     response_message = "Card UID received"
                     #     pass
 
-            except json.JSONDecodeError:
-                logging.error("Received invalid JSON data. Body was: %s", decoded_data)
+            except Exception as e:
+                logging.error("Error parsing URL-encoded data: %s. Body was: %s", e, decoded_data)
                 response_code = 400
-                response_message = "Invalid JSON"
+                response_message = "Invalid URL-encoded data"
 
         except UnicodeDecodeError:
             logging.warning("Could not decode POST data as UTF-8. Logging raw bytes.")
