@@ -7,13 +7,14 @@ RUN \
     python3 \
     py3-pip
 
-# Copy source
-COPY badgereader / 
+COPY requirements.txt /
+RUN pip install --no-cache-dir -r /requirements.txt
+# Create a virtual environment
+RUN python3 -m venv /opt/venv
+# This "activates" the venv for all subsequent RUN, CMD, ENTRYPOINT instructions
+ENV PATH="/opt/venv/bin:$PATH"
 
-# Install Python dependencies (if any are specified in requirements.txt)
-# Assuming requirements.txt might be added later at the root or within the custom_component
- COPY requirements.txt /
- RUN pip install --no-cache-dir -r /requirements.txt
+COPY badgereader / 
 
 # Copy run.sh script
 COPY run.sh /
