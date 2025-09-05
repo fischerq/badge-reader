@@ -1,7 +1,7 @@
 {
   "domain": "badgereader",
   "name": "NFC Badge Reader",
-  "version": "1.0.0",
+  "version": "0.0.4",
   "documentation": "https://github.com/fischerq/badge-reader",
   "dependencies": [],
   "requirements": [],

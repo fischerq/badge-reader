@@ -2,6 +2,8 @@
 
 bashio::log.info "NFC Badge Reader Addon starting..."
 
+ls
+
 # Start the Python HTTP server
 bashio::log.info "Starting Python HTTP server for badge messages..."
 python /badgereader_addon/server.py
