@@ -94,7 +94,7 @@ if __name__ == "__main__":
     # In Home Assistant add-ons, options are often passed as environment variables.
     # However, for the listening port *inside* the container, it's often fixed
     # and mapped in config.yaml. We'll use the fixed PORT 5000 here as identified.
-
+    logging.info(f"Hello from Badge Reader server")
     listen_port = PORT # Fixed internal port
 
     with socketserver.TCPServer(("", listen_port), BadgeRequestHandler) as httpd:
