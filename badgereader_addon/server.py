@@ -1,6 +1,7 @@
 import logging
 import os
 import yaml
+from datetime import datetime, timedelta
 from aiohttp import web
 from homeassistant_api import Client
 
@@ -13,12 +14,16 @@ HA_URL = "http://supervisor/core/api/"
 HA_TOKEN = os.environ.get("SUPERVISOR_TOKEN")
 VERSION = "unknown"
 people = []
+SWIPE_DEBOUNCE_MINUTES = 1
+last_swipe_times = {}  # Stores the last swipe time for each UID
 
 # Load config from config.yaml
 try:
     with open('config.yaml', 'r') as f:
         config = yaml.safe_load(f)
-        people = config.get('options', {}).get('people', [])
+        options = config.get('options', {})
+        people = options.get('people', [])
+        SWIPE_DEBOUNCE_MINUTES = options.get('swipe_debounce_minutes', 1)
         VERSION = config.get('version', 'unknown')
 except FileNotFoundError:
     logging.error("config.yaml not found. Please ensure it exists in the same directory.")
@@ -30,6 +35,8 @@ if people:
     logging.debug(f"Loaded UIDs: {[p.get('uid') for p in people]}")
 else:
     logging.warning("No people configured in config.yaml or config file not found/invalid.")
+
+logging.info(f"Swipe debounce time set to {SWIPE_DEBOUNCE_MINUTES} minute(s).")
 
 async def send_notification(title, message):
     """Sends a notification using the Home Assistant notify service."""
@@ -64,6 +71,23 @@ async def process_card_swipe(card_uid, data):
 
         sanitized_person_uid = str(person_uid).strip().lower()
         if sanitized_person_uid == sanitized_card_uid:
+            # Check for multi-swipes
+            now = datetime.now()
+            last_swipe = last_swipe_times.get(sanitized_person_uid)
+
+            if last_swipe:
+                time_since_last_swipe = now - last_swipe
+                if time_since_last_swipe < timedelta(minutes=SWIPE_DEBOUNCE_MINUTES):
+                    logging.warning(
+                        f"Ignoring duplicate swipe for {person['name']} ({sanitized_card_uid}). "
+                        f"Last swipe was {time_since_last_swipe.total_seconds():.1f} seconds ago. "
+                        f"Debounce is set to {SWIPE_DEBOUNCE_MINUTES} minute(s)."
+                    )
+                    return web.Response(text=f"Duplicate swipe for {person['name']}. Please wait.")
+            
+            # Update the last swipe time before processing
+            last_swipe_times[sanitized_person_uid] = now
+
             logging.info(f"Recognized card for: {person['name']}")
             
             await send_notification(
