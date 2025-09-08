@@ -24,15 +24,60 @@ except yaml.YAMLError as e:
     logging.error(f"Error parsing config.yaml: {e}")
     people = []
 
-async def handle_post(request):
-    # Check for access key
-    if request.query.get('accessKey') != ACCESS_KEY:
-        logging.warning(f"Unauthorized request from {request.remote}. URL query string: '{request.query_string}'")
-        raise web.HTTPUnauthorized(text="Unauthorized")
+async def send_notification(title, message):
+    """Sends a notification using the Home Assistant notify service."""
+    if not HA_TOKEN:
+        logging.warning("SUPERVISOR_TOKEN not found, cannot send notification.")
+        return
 
-    # The data is URL-encoded
+    try:
+        async with Client(HA_URL, HA_TOKEN, use_async=True) as client:
+            await client.async_trigger_service(
+                'notify', 'quirin_niedernhuber_gmail_com',
+                service_data={
+                    'title': title,
+                    'message': message,
+                    'target': 'quirin.niedernhuber@gmail.com'
+                }
+            )
+        logging.info(f"Successfully sent notification with title: '{title}'")
+    except Exception as e:
+        logging.error(f"Error sending notification: {e}")
+
+async def process_card_swipe(card_uid, data):
+    """Processes a card swipe after the UID has been extracted."""
+    # Check if the UID belongs to a known person
+    for person in people:
+        if person['uid'] == card_uid:
+            logging.info(f"Recognized card for: {person['name']}")
+            
+            await send_notification(
+                title='HA - Badge Scan',
+                message=f"Hi from HA. {person['name']} just swiped their badge."
+            )
+            
+            return web.Response(text=f"Welcome, {person['name']}")
+
+    logging.warning(f"Unrecognized card: {card_uid}. Full request data: {data}")
+    # Also notify on unrecognized card
+    await send_notification(
+        title='HA - Unrecognized Badge Scan',
+        message=f"Unrecognized card swiped: {card_uid}"
+    )
+
+    raise web.HTTPUnauthorized(text="Unrecognized card")
+
+async def handle_post(request):
     try:
         data = await request.post()
+
+        # Check for access key in query string OR post body
+        access_key = request.query.get('accessKey') or data.get('accessKey')
+
+        if access_key != ACCESS_KEY:
+            logging.warning(f"Unauthorized request from {request.remote}. URL query: '{request.query_string}'. POST data: {data}")
+            raise web.HTTPUnauthorized(text="Unauthorized")
+
         card_uid = data.get("UID")
 
         if not card_uid:
@@ -41,53 +86,11 @@ async def handle_post(request):
 
         logging.info(f"Extracted card UID: {card_uid}")
 
-        # Check if the UID belongs to a known person
-        for person in people:
-            if person['uid'] == card_uid:
-                logging.info(f"Recognized card for: {person['name']}")
-                
-                # Trigger Home Assistant action
-                try:
-                    if HA_TOKEN:
-                        async with Client(HA_URL, HA_TOKEN, use_async=True) as client:
-                            await client.async_trigger_service(
-                                'notify', 'quirin_niedernhuber_gmail_com',
-                                service_data={
-                                    'message': f"Hi from HA. {person['name']} just swiped their badge.",
-                                    'title': 'HA - Badge Scan',
-                                    'target': 'quirin.niedernhuber@gmail.com'
-                                }
-                            )
-                        logging.info("Successfully triggered Home Assistant action.")
-                    else:
-                        logging.warning("SUPERVISOR_TOKEN not found, cannot trigger Home Assistant action.")
-                except Exception as e:
-                    logging.error(f"Error triggering Home Assistant action: {e}")
-                    # Log the error but continue, so the badge reader gets a success response
-                
-                return web.Response(text=f"Welcome, {person['name']}")
+        return await process_card_swipe(card_uid, data)
 
-        logging.warning(f"Unrecognized card: {card_uid}. Full request data: {data}")
-        # Also notify on unrecognized card
-        try:
-            if HA_TOKEN:
-                async with Client(HA_URL, HA_TOKEN, use_async=True) as client:
-                    await client.async_trigger_service(
-                        'notify', 'quirin_niedernhuber_gmail_com',
-                        service_data={
-                            'message': f"Unrecognized card swiped: {card_uid}",
-                            'title': 'HA - Unrecognized Badge Scan',
-                            'target': 'quirin.niedernhuber@gmail.com'
-                        }
-                    )
-                logging.info("Successfully triggered Home Assistant action for unrecognized card.")
-            else:
-                logging.warning("SUPERVISOR_TOKEN not found, cannot trigger Home Assistant action for unrecognized card.")
-        except Exception as e:
-            logging.error(f"Error triggering Home Assistant action for unrecognized card: {e}")
-
-        raise web.HTTPUnauthorized(text="Unrecognized card")
-
+    except web.HTTPException:
+        # Re-raise HTTP exceptions to be handled by aiohttp
+        raise
     except Exception as e:
         logging.error(f"Error processing POST request: {e}", exc_info=True)
         raise web.HTTPInternalServerError(text="Internal server error")
