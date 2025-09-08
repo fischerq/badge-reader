@@ -27,7 +27,7 @@ except yaml.YAMLError as e:
 async def handle_post(request):
     # Check for access key
     if request.query.get('accessKey') != ACCESS_KEY:
-        logging.warning("Unauthorized request from %s. URL args: %s", request.remote, request.query_string)
+        logging.warning(f"Unauthorized request from {request.remote}. URL query string: '{request.query_string}'")
         raise web.HTTPUnauthorized(text="Unauthorized")
 
     # The data is URL-encoded
@@ -36,15 +36,15 @@ async def handle_post(request):
         card_uid = data.get("UID")
 
         if not card_uid:
-            logging.warning("Received data with no 'UID' field: %s", data)
+            logging.warning(f"Received data with no 'UID' field: {data}")
             raise web.HTTPBadRequest(text="Missing 'UID' in payload")
 
-        logging.info("Extracted card UID: %s", card_uid)
+        logging.info(f"Extracted card UID: {card_uid}")
 
         # Check if the UID belongs to a known person
         for person in people:
             if person['uid'] == card_uid:
-                logging.info("Recognized card for: %s", person['name'])
+                logging.info(f"Recognized card for: {person['name']}")
                 
                 # Trigger Home Assistant action
                 try:
@@ -67,7 +67,7 @@ async def handle_post(request):
                 
                 return web.Response(text=f"Welcome, {person['name']}")
 
-        logging.warning("Unrecognized card: %s. Full request data: %s", card_uid, data)
+        logging.warning(f"Unrecognized card: {card_uid}. Full request data: {data}")
         # Also notify on unrecognized card
         try:
             if HA_TOKEN:
@@ -89,7 +89,7 @@ async def handle_post(request):
         raise web.HTTPUnauthorized(text="Unrecognized card")
 
     except Exception as e:
-        logging.error("Error processing POST request: %s", e, exc_info=True)
+        logging.error(f"Error processing POST request: {e}", exc_info=True)
         raise web.HTTPInternalServerError(text="Internal server error")
 
 async def handle_get(request):
@@ -115,8 +115,8 @@ app.add_routes([
 if __name__ == "__main__":
     if not HA_TOKEN:
         logging.warning("SUPERVISOR_TOKEN environment variable not set. Home Assistant integration will be disabled.")
-    logging.info(f"Hello from Badge Reader server")
+    logging.info("Hello from Badge Reader server")
     logging.info(f"Starting HTTP server for badge reader on port {PORT}...")
     logging.info(f"Server listening on 0.0.0.0:{PORT}")
-    logging.info(f"Badge messages should be sent to http://<ADDON_IP_ADDRESS>:{PORT}/?accessKey=SecretTTCReader81243")
+    logging.info(f"Badge messages should be sent to http://<ADDON_IP_ADDRESS>:{PORT}/?accessKey={ACCESS_KEY}")
     web.run_app(app, host='0.0.0.0', port=PORT)
