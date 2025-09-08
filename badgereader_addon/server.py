@@ -27,7 +27,7 @@ except yaml.YAMLError as e:
 async def handle_post(request):
     # Check for access key
     if request.query.get('accessKey') != ACCESS_KEY:
-        logging.warning("Unauthorized request from %s", request.remote)
+        logging.warning("Unauthorized request from %s. URL args: %s", request.remote, request.query_string)
         raise web.HTTPUnauthorized(text="Unauthorized")
 
     # The data is URL-encoded
@@ -67,7 +67,7 @@ async def handle_post(request):
                 
                 return web.Response(text=f"Welcome, {person['name']}")
 
-        logging.warning("Unrecognized card: %s", card_uid)
+        logging.warning("Unrecognized card: %s. Full request data: %s", card_uid, data)
         # Also notify on unrecognized card
         try:
             if HA_TOKEN:
