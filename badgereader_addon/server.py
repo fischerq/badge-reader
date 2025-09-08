@@ -16,6 +16,8 @@ VERSION = "unknown"
 people = []
 SWIPE_DEBOUNCE_MINUTES = 1
 last_swipe_times = {}  # Stores the last swipe time for each UID
+shift_state = {} # uid -> 'in'/'out'
+shift_start_times = {} # uid -> datetime
 
 # Load config from config.yaml
 try:
@@ -33,6 +35,11 @@ except yaml.YAMLError as e:
 if people:
     logging.info(f"Loaded {len(people)} people from config: {[p.get('name') for p in people]}")
     logging.debug(f"Loaded UIDs: {[p.get('uid') for p in people]}")
+    for person in people:
+        person_uid = person.get('uid')
+        if person_uid:
+            sanitized_person_uid = str(person_uid).strip().lower()
+            shift_state[sanitized_person_uid] = 'out'
 else:
     logging.warning("No people configured in config.yaml or config file not found/invalid.")
 
@@ -92,13 +99,27 @@ async def process_card_swipe(card_uid, data):
             last_swipe_times[sanitized_person_uid] = now
 
             logging.info(f"Recognized card for: {person['name']}")
-            
-            await send_notification(
-                title='HA - Badge Scan',
-                message=f"Hi from HA. {person['name']} just swiped their badge."
-            )
-            
-            return web.Response(text=f"Welcome, {person['name']}")
+
+            # Shift state logic
+            current_state = shift_state.get(sanitized_person_uid, 'out')
+
+            if current_state == 'out':
+                shift_state[sanitized_person_uid] = 'in'
+                shift_start_times[sanitized_person_uid] = now
+                await send_notification(
+                    title='HA - Shift Started',
+                    message=f"Hi from HA. {person['name']} just started their shift."
+                )
+                return web.Response(text=f"Welcome, {person['name']}. Your shift has started.")
+            else: # current_state == 'in'
+                shift_state[sanitized_person_uid] = 'out'
+                start_time = shift_start_times.pop(sanitized_person_uid, now) 
+                duration = now - start_time
+                await send_notification(
+                    title='HA - Shift Ended',
+                    message=f"Hi from HA. {person['name']} just ended their shift. Duration: {duration}."
+                )
+                return web.Response(text=f"Goodbye, {person['name']}. Your shift has ended.")
 
     logging.warning(f"Unrecognized card: {card_uid}. Full request data: {data}")
     # Add detailed log for debugging comparison
