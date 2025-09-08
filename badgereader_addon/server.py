@@ -44,19 +44,22 @@ async def send_notification(title, message):
         logging.warning("SUPERVISOR_TOKEN not found, cannot send notification.")
         return
 
+    domain = "notify"
+    service = "quirin_niedernhuber_gmail_com"
+    service_data = {
+        'title': title,
+        'message': message,
+        'target': 'quirin.niedernhuber@gmail.com'
+    }
+
+    logging.info(f"Attempting to send notification. Domain: '{domain}', Service: '{service}', Data: {service_data}")
+
     try:
         async with Client(HA_URL, HA_TOKEN, use_async=True) as client:
-            await client.async_trigger_service(
-                'quirin_niedernhuber_gmail_com', 'notify',
-                service_data={
-                    'title': title,
-                    'message': message,
-                    'target': 'quirin.niedernhuber@gmail.com'
-                }
-            )
+            await client.async_trigger_service(domain, service, service_data=service_data)
         logging.info(f"Successfully sent notification with title: '{title}'")
     except Exception as e:
-        logging.error(f"Error sending notification: {e}")
+        logging.error(f"Error sending notification: {e}", exc_info=True)
 
 async def process_card_swipe(card_uid, data):
     """Processes a card swipe after the UID has been extracted."""
