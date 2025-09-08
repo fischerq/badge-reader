@@ -8,7 +8,7 @@ from homeassistant_api import Client
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 PORT = 8199
-ACCESS_KEY = "SecretTTCReader81243"
+ACCESS_KEY = "SolalindensteinBadgeReaderSecret"
 HA_URL = "http://supervisor/core/api/"
 HA_TOKEN = os.environ.get("SUPERVISOR_TOKEN")
 
