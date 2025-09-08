@@ -19,5 +19,5 @@ options:
       uid: "DC:9E:6A:05"
 schema:
   people:
-    - name: string
-      uid: string
+    - name: str
+      uid: str
