@@ -1,6 +1,6 @@
 name: "NFC Badge Reader Addon"
 description: "Reads NFC badges and integrates with Home Assistant"
-version: "0.0.10" # Will be updated from manifest.json later
+version: "0.1.0" # Will be updated from manifest.json later
 slug: "badgereader_addon"
 init: false
 arch:
