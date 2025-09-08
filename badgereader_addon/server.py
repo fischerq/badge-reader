@@ -11,18 +11,25 @@ PORT = 8199
 ACCESS_KEY = "SolalindensteinBadgeReaderSecret"
 HA_URL = "http://supervisor/core/api/"
 HA_TOKEN = os.environ.get("SUPERVISOR_TOKEN")
+VERSION = "unknown"
+people = []
 
-# Load people from config.yaml
+# Load config from config.yaml
 try:
     with open('config.yaml', 'r') as f:
         config = yaml.safe_load(f)
         people = config.get('options', {}).get('people', [])
+        VERSION = config.get('version', 'unknown')
 except FileNotFoundError:
     logging.error("config.yaml not found. Please ensure it exists in the same directory.")
-    people = []
 except yaml.YAMLError as e:
     logging.error(f"Error parsing config.yaml: {e}")
-    people = []
+
+if people:
+    logging.info(f"Loaded {len(people)} people from config: {[p.get('name') for p in people]}")
+    logging.debug(f"Loaded UIDs: {[p.get('uid') for p in people]}")
+else:
+    logging.warning("No people configured in config.yaml or config file not found/invalid.")
 
 async def send_notification(title, message):
     """Sends a notification using the Home Assistant notify service."""
@@ -46,9 +53,17 @@ async def send_notification(title, message):
 
 async def process_card_swipe(card_uid, data):
     """Processes a card swipe after the UID has been extracted."""
+    # Sanitize the UID for comparison
+    sanitized_card_uid = str(card_uid).strip().lower()
+
     # Check if the UID belongs to a known person
     for person in people:
-        if person['uid'] == card_uid:
+        person_uid = person.get('uid')
+        if not person_uid:
+            continue
+
+        sanitized_person_uid = str(person_uid).strip().lower()
+        if sanitized_person_uid == sanitized_card_uid:
             logging.info(f"Recognized card for: {person['name']}")
             
             await send_notification(
@@ -59,6 +74,10 @@ async def process_card_swipe(card_uid, data):
             return web.Response(text=f"Welcome, {person['name']}")
 
     logging.warning(f"Unrecognized card: {card_uid}. Full request data: {data}")
+    # Add detailed log for debugging comparison
+    known_uids_sanitized = [str(p.get('uid')).strip().lower() for p in people]
+    logging.info(f"Comparing sanitized UID '{sanitized_card_uid}' with sanitized known UIDs: {known_uids_sanitized}")
+    
     # Also notify on unrecognized card
     await send_notification(
         title='HA - Unrecognized Badge Scan',
@@ -66,6 +85,7 @@ async def process_card_swipe(card_uid, data):
     )
 
     raise web.HTTPUnauthorized(text="Unrecognized card")
+
 
 async def handle_post(request):
     try:
@@ -118,7 +138,7 @@ app.add_routes([
 if __name__ == "__main__":
     if not HA_TOKEN:
         logging.warning("SUPERVISOR_TOKEN environment variable not set. Home Assistant integration will be disabled.")
-    logging.info("Hello from Badge Reader server")
+    logging.info(f"Hello from Badge Reader server, version {VERSION}")
     logging.info(f"Starting HTTP server for badge reader on port {PORT}...")
     logging.info(f"Server listening on 0.0.0.0:{PORT}")
     logging.info(f"Badge messages should be sent to http://<ADDON_IP_ADDRESS>:{PORT}/?accessKey={ACCESS_KEY}")
