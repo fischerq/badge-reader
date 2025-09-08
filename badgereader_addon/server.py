@@ -48,8 +48,7 @@ async def send_notification(title, message):
     service = "quirin_niedernhuber_gmail_com"
     service_data = {
         'title': title,
-        'message': message,
-        'target': 'quirin.niedernhuber@gmail.com'
+        'message': message
     }
 
     logging.info(f"Attempting to send notification. Domain: '{domain}', Service: '{service}', Data: {service_data}")
