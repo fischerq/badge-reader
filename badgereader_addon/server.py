@@ -40,7 +40,7 @@ async def send_notification(title, message):
     try:
         async with Client(HA_URL, HA_TOKEN, use_async=True) as client:
             await client.async_trigger_service(
-                'notify', 'quirin_niedernhuber_gmail_com',
+                'quirin_niedernhuber_gmail_com', 'notify',
                 service_data={
                     'title': title,
                     'message': message,
