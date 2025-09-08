@@ -9,5 +9,15 @@ startup: services
 boot: auto
 ports:
   8199/tcp: 8199 # HTTP server for badge messages runs on port 8199
-options: {}
-schema: {}
+options:
+  people:
+    - name: "Person 1"
+      uid: "DE:76:28:3C"
+    - name: "Person 2"
+      uid: "FE:E0:23:3C"
+    - name: "Person 3"
+      uid: "DC:9E:6A:05"
+schema:
+  people:
+    - name: string
+      uid: string

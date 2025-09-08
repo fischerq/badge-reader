@@ -1,109 +1,113 @@
-import http.server
-import socketserver
 import logging
-import os
-from urllib.parse import parse_qs
+import yaml
+from aiohttp import web
+from homeassistant_addon import AddonClient
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 PORT = 8199
+ACCESS_KEY = "SecretTTCReader81243"
 
-class BadgeRequestHandler(http.server.BaseHTTPRequestHandler):
-    def do_POST(self):
-        content_length = int(self.headers.get('Content-Length', 0))
-        post_data = self.rfile.read(content_length)
+# Load people from config.yaml
+try:
+    with open('config.yaml', 'r') as f:
+        config = yaml.safe_load(f)
+        people = config.get('options', {}).get('people', [])
+except FileNotFoundError:
+    logging.error("config.yaml not found. Please ensure it exists in the same directory.")
+    people = []
+except yaml.YAMLError as e:
+    logging.error(f"Error parsing config.yaml: {e}")
+    people = []
 
-        logging.info("Received POST request to %s from %s", self.path, self.client_address[0])
-        logging.debug("Headers:\n%s", str(self.headers).strip())
+async def handle_post(request):
+    # Check for access key
+    if request.query.get('accessKey') != ACCESS_KEY:
+        logging.warning("Unauthorized request from %s", request.remote)
+        raise web.HTTPUnauthorized(text="Unauthorized")
 
-        response_code = 200
-        response_message = "POST request processed."
+    # The data is URL-encoded
+    try:
+        data = await request.post()
+        card_uid = data.get("UID")
 
+        if not card_uid:
+            logging.warning("Received data with no 'UID' field: %s", data)
+            raise web.HTTPBadRequest(text="Missing 'UID' in payload")
+
+        logging.info("Extracted card UID: %s", card_uid)
+
+        # Check if the UID belongs to a known person
+        for person in people:
+            if person['uid'] == card_uid:
+                logging.info("Recognized card for: %s", person['name'])
+                
+                # Trigger Home Assistant action
+                try:
+                    async with AddonClient() as client:
+                        await client.async_call_service(
+                            domain="notify",
+                            service="quirin_niedernhuber_gmail_com",
+                            service_data={
+                                "message": f"Hi from HA. {person['name']} just swiped their badge.",
+                                "title": "HA - Badge Scan",
+                                "target": "quirin.niedernhuber@gmail.com"
+                            }
+                        )
+                    logging.info("Successfully triggered Home Assistant action.")
+                except Exception as e:
+                    logging.error(f"Error triggering Home Assistant action: {e}")
+                    # Log the error but continue, so the badge reader gets a success response
+                
+                return web.Response(text=f"Welcome, {person['name']}")
+
+        logging.warning("Unrecognized card: %s", card_uid)
+        # Also notify on unrecognized card
         try:
-            decoded_data = post_data.decode('utf-8')
-            logging.debug("Raw Body:\n%s", decoded_data)
-
-            # The data is URL-encoded, not JSON
-            try:
-                data = parse_qs(decoded_data)
-                card_uid_list = data.get("UID")
-
-                if not card_uid_list:
-                    logging.warning("Received data with no 'UID' field: %s", data)
-                    response_code = 400
-                    response_message = "Missing 'UID' in payload"
-                else:
-                    card_uid = card_uid_list[0]
-                    logging.info("Extracted card UID: %s", card_uid)
-
-                    # Placeholder for comparing with a configured UID
-                    # This would typically come from add-on options / environment variables
-                    # Example: configured_uid = os.environ.get("NFC_CARD_UID_TO_MATCH")
-                    # if configured_uid and card_uid == configured_uid:
-                    #     logging.info("Recognized card: %s", card_uid)
-                    #     response_message = "Card recognized"
-                    # elif configured_uid:
-                    #     logging.warning("Unrecognized card: %s (expected %s)", card_uid, configured_uid)
-                    #     response_message = "Unrecognized card"
-                    #     response_code = 401 # Unauthorized
-                    # else:
-                    #     # No specific UID configured to match, just acknowledging receipt
-                    #     response_message = "Card UID received"
-                    #     pass
-
-            except Exception as e:
-                logging.error("Error parsing URL-encoded data: %s. Body was: %s", e, decoded_data)
-                response_code = 400
-                response_message = "Invalid URL-encoded data"
-
-        except UnicodeDecodeError:
-            logging.warning("Could not decode POST data as UTF-8. Logging raw bytes.")
-            logging.debug("Body (raw bytes):\n%s", post_data)
-            response_code = 400
-            response_message = "Invalid data encoding, expected UTF-8"
+            async with AddonClient() as client:
+                await client.async_call_service(
+                    domain="notify",
+                    service="quirin_niedernhuber_gmail_com",
+                    service_data={
+                        "message": f"Unrecognized card swiped: {card_uid}",
+                        "title": "HA - Unrecognized Badge Scan",
+                        "target": "quirin.niedernhuber@gmail.com"
+                    }
+                )
+            logging.info("Successfully triggered Home Assistant action for unrecognized card.")
         except Exception as e:
-            logging.error("Error processing POST request: %s", e, exc_info=True)
-            response_code = 500
-            response_message = "Internal server error"
+            logging.error(f"Error triggering Home Assistant action for unrecognized card: {e}")
 
-        self.send_response(response_code)
-        self.send_header('Content-type', 'text/plain')
-        self.end_headers()
-        self.wfile.write(response_message.encode('utf-8'))
+        raise web.HTTPUnauthorized(text="Unrecognized card")
 
-    def do_GET(self):
-        # Simple health check / status page
-        self.send_response(200)
-        self.send_header('Content-type', 'text/html')
-        self.end_headers()
-        html_response = """
-        <html>
-            <head><title>Badge Reader Addon Server</title></head>
-            <body>
-                <h1>Badge Reader Addon HTTP Server</h1>
-                <p>This server is running and listening for POST requests for badge data.</p>
-            </body>
-        </html>
-        """
-        self.wfile.write(html_response.encode('utf-8'))
-        logging.info(f"Served GET request to {self.path} from {self.client_address[0]}")
+    except Exception as e:
+        logging.error("Error processing POST request: %s", e, exc_info=True)
+        raise web.HTTPInternalServerError(text="Internal server error")
 
+async def handle_get(request):
+    # Simple health check / status page
+    html_response = '''
+    <html>
+        <head><title>Badge Reader Addon Server</title></head>
+        <body>
+            <h1>Badge Reader Addon HTTP Server</h1>
+            <p>This server is running and listening for POST requests for badge data.</p>
+        </body>
+    </html>
+    '''
+    logging.info(f"Served GET request to {request.path} from {request.remote}")
+    return web.Response(text=html_response, content_type='text/html')
+
+app = web.Application()
+app.add_routes([
+    web.post('/', handle_post),
+    web.get('/', handle_get),
+])
 
 if __name__ == "__main__":
-    # Get port from environment variable if available, otherwise default to PORT
-    # In Home Assistant add-ons, options are often passed as environment variables.
-    # However, for the listening port *inside* the container, it's often fixed
-    # and mapped in config.yaml. We'll use the fixed PORT 5000 here as identified.
     logging.info(f"Hello from Badge Reader server")
-    listen_port = PORT # Fixed internal port
-
-    with socketserver.TCPServer(("", listen_port), BadgeRequestHandler) as httpd:
-        logging.info(f"Starting HTTP server for badge reader on port {listen_port}...")
-        # To get the container's IP is not straightforward from within Python easily.
-        # The important part is that it's listening on 0.0.0.0 (all interfaces) inside the container.
-        # The URL to be used externally would depend on the Docker networking and HA setup.
-        # We can log that it's listening on the specified port.
-        logging.info(f"Server listening on 0.0.0.0:{listen_port}")
-        logging.info(f"Badge messages should be sent to http://<ADDON_IP_ADDRESS>:{listen_port}/")
-        httpd.serve_forever()
+    logging.info(f"Starting HTTP server for badge reader on port {PORT}...")
+    logging.info(f"Server listening on 0.0.0.0:{PORT}")
+    logging.info(f"Badge messages should be sent to http://<ADDON_IP_ADDRESS>:{PORT}/?accessKey=SecretTTCReader81243")
+    web.run_app(app, host='0.0.0.0', port=PORT)
