@@ -21,3 +21,4 @@ schema:
   people:
     - name: str
       uid: str
+homeassistant_api: true

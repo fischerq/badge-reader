@@ -3,6 +3,7 @@ FROM $BUILD_FROM
 
 RUN \
   apk add --no-cache \
+    git \
     python3 \
     py3-pip
 
@@ -10,6 +11,7 @@ COPY requirements.txt /
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 RUN pip install --no-cache-dir -r /requirements.txt
+RUN pip install --no-cache-dir git+https://github.com/GrandMoff100/HomeAssistantAPI.git
 
 COPY run.sh /
 COPY server.py /

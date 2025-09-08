@@ -1,13 +1,16 @@
 import logging
+import os
 import yaml
 from aiohttp import web
-from homeassistant_addon import AddonClient
+from homeassistant_api import Client
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 PORT = 8199
 ACCESS_KEY = "SecretTTCReader81243"
+HA_URL = "http://supervisor/core/api/"
+HA_TOKEN = os.environ.get("SUPERVISOR_TOKEN")
 
 # Load people from config.yaml
 try:
@@ -45,17 +48,19 @@ async def handle_post(request):
                 
                 # Trigger Home Assistant action
                 try:
-                    async with AddonClient() as client:
-                        await client.async_call_service(
-                            domain="notify",
-                            service="quirin_niedernhuber_gmail_com",
-                            service_data={
-                                "message": f"Hi from HA. {person['name']} just swiped their badge.",
-                                "title": "HA - Badge Scan",
-                                "target": "quirin.niedernhuber@gmail.com"
-                            }
-                        )
-                    logging.info("Successfully triggered Home Assistant action.")
+                    if HA_TOKEN:
+                        async with Client(HA_URL, HA_TOKEN, use_async=True) as client:
+                            await client.async_trigger_service(
+                                'notify', 'quirin_niedernhuber_gmail_com',
+                                service_data={
+                                    'message': f"Hi from HA. {person['name']} just swiped their badge.",
+                                    'title': 'HA - Badge Scan',
+                                    'target': 'quirin.niedernhuber@gmail.com'
+                                }
+                            )
+                        logging.info("Successfully triggered Home Assistant action.")
+                    else:
+                        logging.warning("SUPERVISOR_TOKEN not found, cannot trigger Home Assistant action.")
                 except Exception as e:
                     logging.error(f"Error triggering Home Assistant action: {e}")
                     # Log the error but continue, so the badge reader gets a success response
@@ -65,17 +70,19 @@ async def handle_post(request):
         logging.warning("Unrecognized card: %s", card_uid)
         # Also notify on unrecognized card
         try:
-            async with AddonClient() as client:
-                await client.async_call_service(
-                    domain="notify",
-                    service="quirin_niedernhuber_gmail_com",
-                    service_data={
-                        "message": f"Unrecognized card swiped: {card_uid}",
-                        "title": "HA - Unrecognized Badge Scan",
-                        "target": "quirin.niedernhuber@gmail.com"
-                    }
-                )
-            logging.info("Successfully triggered Home Assistant action for unrecognized card.")
+            if HA_TOKEN:
+                async with Client(HA_URL, HA_TOKEN, use_async=True) as client:
+                    await client.async_trigger_service(
+                        'notify', 'quirin_niedernhuber_gmail_com',
+                        service_data={
+                            'message': f"Unrecognized card swiped: {card_uid}",
+                            'title': 'HA - Unrecognized Badge Scan',
+                            'target': 'quirin.niedernhuber@gmail.com'
+                        }
+                    )
+                logging.info("Successfully triggered Home Assistant action for unrecognized card.")
+            else:
+                logging.warning("SUPERVISOR_TOKEN not found, cannot trigger Home Assistant action for unrecognized card.")
         except Exception as e:
             logging.error(f"Error triggering Home Assistant action for unrecognized card: {e}")
 
@@ -106,6 +113,8 @@ app.add_routes([
 ])
 
 if __name__ == "__main__":
+    if not HA_TOKEN:
+        logging.warning("SUPERVISOR_TOKEN environment variable not set. Home Assistant integration will be disabled.")
     logging.info(f"Hello from Badge Reader server")
     logging.info(f"Starting HTTP server for badge reader on port {PORT}...")
     logging.info(f"Server listening on 0.0.0.0:{PORT}")
