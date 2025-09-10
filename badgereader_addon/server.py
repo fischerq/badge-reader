@@ -21,7 +21,7 @@ shift_state = {} # uid -> 'in'/'out'
 shift_start_times = {} # uid -> datetime
 
 # Google Sheets configuration
-CREDS_FILE = '/share/google_credentials_solalindenstein_docs_user.json'
+CREDS_FILE = '/share/google_credentials_solalindenstein_docs_user.json' # should work
 SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/1KbvS_5aVuok2uCnqSCoU_5R7Wbu9M5F-MFGwTCCaWTA/edit'
 WORKSHEET_NAME = 'Data'
 
@@ -218,7 +218,7 @@ if __name__ == "__main__":
         logging.warning("SUPERVISOR_TOKEN environment variable not set. Home Assistant integration will be disabled.")
     
     # Check Google Sheet access
-    logging.info("Checking Google Sheet access...")
+    logging.info("Checking Google Sheet access, for real...")
     sheet = get_sheet()
     if sheet:
         try:
