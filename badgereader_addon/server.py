@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 from aiohttp import web
 from homeassistant_api import Client
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
