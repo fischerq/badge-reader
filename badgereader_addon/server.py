@@ -4,6 +4,8 @@ import yaml
 from datetime import datetime, timedelta
 from aiohttp import web
 from homeassistant_api import Client
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -18,6 +20,33 @@ SWIPE_DEBOUNCE_MINUTES = 1
 last_swipe_times = {}  # Stores the last swipe time for each UID
 shift_state = {} # uid -> 'in'/'out'
 shift_start_times = {} # uid -> datetime
+
+# Google Sheets configuration
+CREDS_FILE = '/share/google_credentials_solalindenstein_docs_user.json'
+SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/1KbvS_5aVuok2uCnqSCoU_5R7Wbu9M5F-MFGwTCCaWTA/edit'
+WORKSHEET_NAME = 'Data'
+
+def get_sheet():
+    """Authenticates with Google Sheets and returns the worksheet."""
+    try:
+        client = gspread.service_account(filename=CREDS_FILE)
+        spreadsheet = client.open_by_url(SPREADSHEET_URL)
+        sheet = spreadsheet.worksheet(WORKSHEET_NAME)
+        return sheet
+    except Exception as e:
+        logging.error(f"Error accessing Google Sheet: {e}", exc_info=True)
+        return None
+
+def log_swipe_to_sheet(person_name, action, timestamp):
+    """Logs a badge swipe to the Google Sheet."""
+    sheet = get_sheet()
+    if sheet:
+        try:
+            row = [person_name, action, timestamp.strftime("%Y-%m-%d %H:%M:%S")]
+            sheet.append_row(row)
+            logging.info(f"Logged to Google Sheet: {row}")
+        except Exception as e:
+            logging.error(f"Error logging to Google Sheet: {e}", exc_info=True)
 
 # Load config from config.yaml
 try:
@@ -106,6 +135,7 @@ async def process_card_swipe(card_uid, data):
             if current_state == 'out':
                 shift_state[sanitized_person_uid] = 'in'
                 shift_start_times[sanitized_person_uid] = now
+                log_swipe_to_sheet(person['name'], 'in', now)
                 await send_notification(
                     title='HA - Shift Started',
                     message=f"Hi from HA. {person['name']} just started their shift."
@@ -115,6 +145,7 @@ async def process_card_swipe(card_uid, data):
                 shift_state[sanitized_person_uid] = 'out'
                 start_time = shift_start_times.pop(sanitized_person_uid, now) 
                 duration = now - start_time
+                log_swipe_to_sheet(person['name'], 'out', now)
                 await send_notification(
                     title='HA - Shift Ended',
                     message=f"Hi from HA. {person['name']} just ended their shift. Duration: {duration}."
@@ -186,6 +217,19 @@ app.add_routes([
 if __name__ == "__main__":
     if not HA_TOKEN:
         logging.warning("SUPERVISOR_TOKEN environment variable not set. Home Assistant integration will be disabled.")
+    
+    # Check Google Sheet access
+    logging.info("Checking Google Sheet access...")
+    sheet = get_sheet()
+    if sheet:
+        try:
+            cell_c1 = sheet.cell(1, 3).value # C1
+            logging.info(f"Successfully accessed Google Sheet. Cell C1 contains: '{cell_c1}'")
+        except Exception as e:
+            logging.error(f"Error reading from Google Sheet: {e}")
+    else:
+        logging.error("Could not access Google Sheet.")
+
     logging.info(f"Hello from Badge Reader server, version {VERSION}")
     logging.info(f"Starting HTTP server for badge reader on port {PORT}...")
     logging.info(f"Server listening on 0.0.0.0:{PORT}")
