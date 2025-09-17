@@ -5,30 +5,81 @@ from datetime import datetime, timedelta
 from aiohttp import web
 from homeassistant_api import Client
 import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+class Config:
+    def __init__(self, config_path='config.yaml'):
+        # Default values
+        self.notification_domain = "notify"
+        self.notification_service = "gmail_solalindenstein"
+        self.notification_emails = []
+        self.badges = []
+        self.people = []
+        self.swipe_debounce_minutes = 1
+        self.version = "unknown"
+        self.people_map = {}
+        self.badge_map = {}
+
+        self.load_from_file(config_path)
+
+    def load_from_file(self, config_path):
+        try:
+            with open(config_path, 'r') as f:
+                config = yaml.safe_load(f)
+                options = config.get('options', {})
+                self.notification_domain = options.get('notification_domain', self.notification_domain)
+                self.notification_service = options.get('notification_service', self.notification_service)
+                self.notification_emails = options.get('notification_emails', self.notification_emails)
+                self.badges = options.get('badges', self.badges)
+                self.people = options.get('people', self.people)
+                self.swipe_debounce_minutes = options.get('swipe_debounce_minutes', self.swipe_debounce_minutes)
+                self.version = config.get('version', self.version)
+        except FileNotFoundError:
+            logging.error(f"{config_path} not found. Please ensure it exists in the same directory.")
+        except yaml.YAMLError as e:
+            logging.error(f"Error parsing {config_path}: {e}")
+
+        # Create lookups for easier access
+        self.people_map = {person['id']: person for person in self.people}
+        self.badge_map = {badge['uid'].lower().strip(): badge['peopleID'] for badge in self.badges}
+
+
+# --- Global constants and objects ---
 PORT = 8199
 ACCESS_KEY = "SolalindensteinBadgeReaderSecret"
 HA_URL = "http://supervisor/core/api/"
 HA_TOKEN = os.environ.get("SUPERVISOR_TOKEN")
-VERSION = "unknown"
-people = []
-SWIPE_DEBOUNCE_MINUTES = 1
+
+# Load configuration
+config = Config()
+
 last_swipe_times = {}  # Stores the last swipe time for each UID
 shift_state = {} # uid -> 'in'/'out'
 shift_start_times = {} # uid -> datetime
 
+# Initialize shift states for all known badges
+for uid in config.badge_map.keys():
+    shift_state[uid] = 'out'
+
+logging.info(f"Loaded {len(config.badges)} badges and {len(config.people)} people.")
+logging.info(f"Notification emails: {config.notification_emails}")
+logging.info(f"Swipe debounce time set to {config.swipe_debounce_minutes} minute(s).")
+
+
 # Google Sheets configuration
-CREDS_FILE = '/share/google_credentials_solalindenstein_docs_user.json' # should work
-SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/1KbvS_5aVuok2uCnqSCoU_5R7Wbu9M5F-MFGwTCCaWTA/edit'
+SCOPE = ['https://www.googleapis.com/auth/spreadsheets', "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
+CREDS_FILE = '/share/google_credentials_solalindenstein_docs_user.json'
+SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/1qZ3-8Q3z4Nn3q_V3RArP3p8G_sWn3j8aC5H6j2k_4zE/edit#gid=0' # Dummy URL, replace with your actual URL
 WORKSHEET_NAME = 'Data'
 
 def get_sheet():
     """Authenticates with Google Sheets and returns the worksheet."""
     try:
-        client = gspread.service_account(filename=CREDS_FILE)
+        creds = ServiceAccountCredentials.from_json_keyfile_name(CREDS_FILE, SCOPE)
+        client = gspread.authorize(creds)
         spreadsheet = client.open_by_url(SPREADSHEET_URL)
         sheet = spreadsheet.worksheet(WORKSHEET_NAME)
         return sheet
@@ -47,129 +98,110 @@ def log_swipe_to_sheet(person_name, action, timestamp):
         except Exception as e:
             logging.error(f"Error logging to Google Sheet: {e}", exc_info=True)
 
-# Load config from config.yaml
-try:
-    with open('config.yaml', 'r') as f:
-        config = yaml.safe_load(f)
-        options = config.get('options', {})
-        people = options.get('people', [])
-        SWIPE_DEBOUNCE_MINUTES = options.get('swipe_debounce_minutes', 1)
-        VERSION = config.get('version', 'unknown')
-except FileNotFoundError:
-    logging.error("config.yaml not found. Please ensure it exists in the same directory.")
-except yaml.YAMLError as e:
-    logging.error(f"Error parsing config.yaml: {e}")
-
-if people:
-    logging.info(f"Loaded {len(people)} people from config: {[p.get('name') for p in people]}")
-    logging.debug(f"Loaded UIDs: {[p.get('uid') for p in people]}")
-    for person in people:
-        person_uid = person.get('uid')
-        if person_uid:
-            sanitized_person_uid = str(person_uid).strip().lower()
-            shift_state[sanitized_person_uid] = 'out'
-else:
-    logging.warning("No people configured in config.yaml or config file not found/invalid.")
-
-logging.info(f"Swipe debounce time set to {SWIPE_DEBOUNCE_MINUTES} minute(s).")
-
-async def send_notification(title, message):
+async def send_notification(title, message, person=None):
     """Sends a notification using the Home Assistant notify service."""
     if not HA_TOKEN:
         logging.warning("SUPERVISOR_TOKEN not found, cannot send notification.")
         return
 
-    domain = "notify"
-    service = "quirin_niedernhuber_gmail_com"
+    if person and person.get('email'):
+        primary_recipients = [person['email']]
+        cc_recipients = [email for email in config.notification_emails if email != person['email']]
+    else:
+        primary_recipients = config.notification_emails
+        cc_recipients = []
+
+    if not primary_recipients:
+        logging.warning("No recipients found for notification.")
+        return
+
     service_data = {
         'title': title,
         'message': message,
-        'target': "quirin.niedernhuber@gmail.com" 
+        'target': primary_recipients
     }
 
-    logging.info(f"Attempting to send notification. Domain: '{domain}', Service: '{service}', Data: {service_data}")
+    if cc_recipients:
+        service_data['data'] = {'cc': cc_recipients}
+
+    logging.info(f"Attempting to send notification to {primary_recipients} (CC: {cc_recipients}). "
+                 f"Domain: '{config.notification_domain}', Service: '{config.notification_service}', Data: {service_data}")
 
     try:
         async with Client(HA_URL, HA_TOKEN, use_async=True) as client:
-            await client.async_trigger_service(domain, service, **service_data)
-        logging.info(f"Successfully sent notification with title: '{title}'")
+            await client.async_trigger_service(config.notification_domain, config.notification_service, **service_data)
+        logging.info(f"Successfully sent notification with title: '{title}' to {primary_recipients}")
     except Exception as e:
-        logging.error(f"Error sending notification: {e}", exc_info=True)
+        logging.error(f"Error sending notification to {primary_recipients}: {e}", exc_info=True)
 
 async def process_card_swipe(card_uid, data):
     """Processes a card swipe after the UID has been extracted."""
-    # Sanitize the UID for comparison
     sanitized_card_uid = str(card_uid).strip().lower()
 
-    # Check if the UID belongs to a known person
-    for person in people:
-        person_uid = person.get('uid')
-        if not person_uid:
-            continue
+    if sanitized_card_uid in config.badge_map:
+        people_id = config.badge_map[sanitized_card_uid]
+        person = config.people_map.get(people_id)
 
-        sanitized_person_uid = str(person_uid).strip().lower()
-        if sanitized_person_uid == sanitized_card_uid:
-            # Check for multi-swipes
-            now = datetime.now()
-            last_swipe = last_swipe_times.get(sanitized_person_uid)
+        if not person:
+            logging.error(f"Badge with UID {sanitized_card_uid} is mapped to a non-existent person with ID {people_id}")
+            return web.HTTPInternalServerError(text="Internal server error - bad configuration")
 
-            if last_swipe:
-                time_since_last_swipe = now - last_swipe
-                if time_since_last_swipe < timedelta(minutes=SWIPE_DEBOUNCE_MINUTES):
-                    logging.warning(
-                        f"Ignoring duplicate swipe for {person['name']} ({sanitized_card_uid}). "
-                        f"Last swipe was {time_since_last_swipe.total_seconds():.1f} seconds ago. "
-                        f"Debounce is set to {SWIPE_DEBOUNCE_MINUTES} minute(s)."
-                    )
-                    return web.Response(text=f"Duplicate swipe for {person['name']}. Please wait.")
-            
-            # Update the last swipe time before processing
-            last_swipe_times[sanitized_person_uid] = now
+        person_name = person['name']
 
-            logging.info(f"Recognized card for: {person['name']}")
+        # Check for multi-swipes
+        now = datetime.now()
+        last_swipe = last_swipe_times.get(sanitized_card_uid)
 
-            # Shift state logic
-            current_state = shift_state.get(sanitized_person_uid, 'out')
-
-            if current_state == 'out':
-                shift_state[sanitized_person_uid] = 'in'
-                shift_start_times[sanitized_person_uid] = now
-                log_swipe_to_sheet(person['name'], 'in', now)
-                await send_notification(
-                    title='HA - Shift Started',
-                    message=f"Hi from HA. {person['name']} just started their shift."
+        if last_swipe:
+            time_since_last_swipe = now - last_swipe
+            if time_since_last_swipe < timedelta(minutes=config.swipe_debounce_minutes):
+                logging.warning(
+                    f"Ignoring duplicate swipe for {person_name} ({sanitized_card_uid}). "
+                    f"Last swipe was {time_since_last_swipe.total_seconds():.1f} seconds ago. "
+                    f"Debounce is set to {config.swipe_debounce_minutes} minute(s)."
                 )
-                return web.Response(text=f"Welcome, {person['name']}. Your shift has started.")
-            else: # current_state == 'in'
-                shift_state[sanitized_person_uid] = 'out'
-                start_time = shift_start_times.pop(sanitized_person_uid, now) 
-                duration = now - start_time
-                log_swipe_to_sheet(person['name'], 'out', now)
-                await send_notification(
-                    title='HA - Shift Ended',
-                    message=f"Hi from HA. {person['name']} just ended their shift. Duration: {duration}."
-                )
-                return web.Response(text=f"Goodbye, {person['name']}. Your shift has ended.")
+                return web.Response(text=f"Duplicate swipe for {person_name}. Please wait.")
 
-    logging.warning(f"Unrecognized card: {card_uid}. Full request data: {data}")
-    # Add detailed log for debugging comparison
-    known_uids_sanitized = [str(p.get('uid')).strip().lower() for p in people]
-    logging.info(f"Comparing sanitized UID '{sanitized_card_uid}' with sanitized known UIDs: {known_uids_sanitized}")
-    
-    # Also notify on unrecognized card
-    await send_notification(
-        title='HA - Unrecognized Badge Scan',
-        message=f"Unrecognized card swiped: {card_uid}"
-    )
+        last_swipe_times[sanitized_card_uid] = now
 
-    raise web.HTTPUnauthorized(text="Unrecognized card")
+        logging.info(f"Recognized card for: {person_name}")
+
+        current_state = shift_state.get(sanitized_card_uid, 'out')
+
+        if current_state == 'out':
+            shift_state[sanitized_card_uid] = 'in'
+            shift_start_times[sanitized_card_uid] = now
+            log_swipe_to_sheet(person_name, 'in', now)
+            await send_notification(
+                title='HA - Shift Started',
+                message=f"Hi from HA. {person_name} just started their shift.",
+                person=person
+            )
+            return web.Response(text=f"Welcome, {person_name}. Your shift has started.")
+        else: # current_state == 'in'
+            shift_state[sanitized_card_uid] = 'out'
+            start_time = shift_start_times.pop(sanitized_card_uid, now)
+            duration = now - start_time
+            log_swipe_to_sheet(person_name, 'out', now)
+            await send_notification(
+                title='HA - Shift Ended',
+                message=f"Hi from HA. {person_name} just ended their shift. Duration: {duration}.",
+                person=person
+            )
+            return web.Response(text=f"Goodbye, {person_name}. Your shift has ended.")
+
+    else:
+        logging.warning(f"Unrecognized card: {card_uid}. Full request data: {data}")
+        await send_notification(
+            title='HA - Unrecognized Badge Scan',
+            message=f"Unrecognized card swiped: {card_uid}"
+        )
+        raise web.HTTPUnauthorized(text="Unrecognized card")
 
 
 async def handle_post(request):
     try:
         data = await request.post()
-
-        # Check for access key in query string OR post body
         access_key = request.query.get('accessKey') or data.get('accessKey')
 
         if access_key != ACCESS_KEY:
@@ -177,24 +209,20 @@ async def handle_post(request):
             raise web.HTTPUnauthorized(text="Unauthorized")
 
         card_uid = data.get("UID")
-
         if not card_uid:
             logging.warning(f"Received data with no 'UID' field: {data}")
             raise web.HTTPBadRequest(text="Missing 'UID' in payload")
 
         logging.info(f"Extracted card UID: {card_uid}")
-
         return await process_card_swipe(card_uid, data)
 
-    except web.HTTPException:
-        # Re-raise HTTP exceptions to be handled by aiohttp
-        raise
+    except web.HTTPException as e:
+        raise e
     except Exception as e:
         logging.error(f"Error processing POST request: {e}", exc_info=True)
         raise web.HTTPInternalServerError(text="Internal server error")
 
 async def handle_get(request):
-    # Simple health check / status page
     html_response = '''
     <html>
         <head><title>Badge Reader Addon Server</title></head>
@@ -216,9 +244,8 @@ app.add_routes([
 if __name__ == "__main__":
     if not HA_TOKEN:
         logging.warning("SUPERVISOR_TOKEN environment variable not set. Home Assistant integration will be disabled.")
-    
-    # Check Google Sheet access
-    logging.info("Checking Google Sheet access, for real...")
+
+    logging.info("Checking Google Sheet access...")
     sheet = get_sheet()
     if sheet:
         try:
@@ -229,7 +256,7 @@ if __name__ == "__main__":
     else:
         logging.error("Could not access Google Sheet.")
 
-    logging.info(f"Hello from Badge Reader server, version {VERSION}")
+    logging.info(f"Hello from Badge Reader server, version {config.version}")
     logging.info(f"Starting HTTP server for badge reader on port {PORT}...")
     logging.info(f"Server listening on 0.0.0.0:{PORT}")
     logging.info(f"Badge messages should be sent to http://<ADDON_IP_ADDRESS>:{PORT}/?accessKey={ACCESS_KEY}")

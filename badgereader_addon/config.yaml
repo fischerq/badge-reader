@@ -1,6 +1,6 @@
 name: "NFC Badge Reader Addon"
 description: "Reads NFC badges and integrates with Home Assistant"
-version: "0.3.3"
+version: "0.3.4"
 slug: "badgereader_addon"
 init: false
 arch:
@@ -8,19 +8,41 @@ arch:
 startup: services
 boot: auto
 ports:
-  8199/tcp: 8199 # HTTP server for badge messages runs on port 8199
+  8199/tcp: 8199
 options:
+  notification_domain: "notify"
+  notification_service: "quirin_niedernhuber_gmail_com" # Sends using quirin.niedernhuber@gmail.com as sender 
+  notification_emails:
+    - "quirin.niedernhuber@gmail.com"
+    - "tanja.niedernhuber@gmx.de"
+  badges:
+    - uid: "DE:76:28:3C"
+      peopleID: 0
+    - uid: "FE:E0:23:3C"
+      peopleID: 0
+    - uid: "DC:9E:6A:05"
+      peopleID: 1
   people:
-    - name: "Person 1"
-      uid: "DE:76:28:3C"
-    - name: "Person 2"
-      uid: "FE:E0:23:3C"
-    - name: "Person 3"
-      uid: "DC:9E:6A:05"
+    - id: 0
+      name: "Test Person"
+      email: "quirin.niedernhuber@gmail.com"
+    - id: 1
+      name: "Nicole"
+      email: "nicole@example.com"
+  swipe_debounce_minutes: 1
 schema:
+  notification_domain: str
+  notification_service: str
+  notification_emails:
+    - str
+  badges:
+    - uid: str
+      peopleID: int
   people:
-    - name: str
-      uid: str
+    - id: int
+      name: str
+      email: str
+  swipe_debounce_minutes: int
 homeassistant_api: true
 map:
   - "addon_config:rw"
