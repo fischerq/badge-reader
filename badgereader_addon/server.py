@@ -1,6 +1,7 @@
 import logging
 import os
 import yaml
+import json
 from datetime import datetime, timedelta
 from aiohttp import web
 from homeassistant_api import Client
@@ -19,6 +20,11 @@ class Config:
         self.badges = []
         self.people = []
         self.swipe_debounce_minutes = 1
+        self.swipe_time_buffer_minutes = 3
+        self.storage_backend = "google_sheets"
+        self.storage_file_path = "/share/swipe_log.jsonl"
+        self.google_spreadsheet_url = 'https://docs.google.com/spreadsheets/d/1qZ3-8Q3z4Nn3q_V3RArP3p8G_sWn3j8aC5H6j2k_4zE/edit#gid=0' # Dummy URL, replace with your actual URL
+        self.google_worksheet_name = 'Data'
         self.version = "unknown"
         self.people_map = {}
         self.badge_map = {}
@@ -36,6 +42,11 @@ class Config:
                 self.badges = options.get('badges', self.badges)
                 self.people = options.get('people', self.people)
                 self.swipe_debounce_minutes = options.get('swipe_debounce_minutes', self.swipe_debounce_minutes)
+                self.swipe_time_buffer_minutes = options.get('swipe_time_buffer_minutes', self.swipe_time_buffer_minutes)
+                self.storage_backend = options.get('storage_backend', self.storage_backend)
+                self.storage_file_path = options.get('storage_file_path', self.storage_file_path)
+                self.google_spreadsheet_url = options.get('google_spreadsheet_url', self.google_spreadsheet_url)
+                self.google_worksheet_name = options.get('google_worksheet_name', self.google_worksheet_name)
                 self.version = config.get('version', self.version)
         except FileNotFoundError:
             logging.error(f"{config_path} not found. Please ensure it exists in the same directory.")
@@ -46,6 +57,87 @@ class Config:
         self.people_map = {person['id']: person for person in self.people}
         self.badge_map = {badge['uid'].lower().strip(): badge['peopleID'] for badge in self.badges}
 
+# --- Storage Classes ---
+class Storage:
+    def log_swipe(self, timestamp, badge_id, action_json):
+        raise NotImplementedError
+
+    def check(self):
+        raise NotImplementedError
+
+class GoogleSheetStorage(Storage):
+    def __init__(self, config):
+        self.config = config
+        self.scope = ['https://www.googleapis.com/auth/spreadsheets', "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
+        self.creds_file = '/share/google_credentials_solalindenstein_docs_user.json'
+        self.sheet = self._get_sheet()
+
+    def _get_sheet(self):
+        """Authenticates with Google Sheets and returns the worksheet."""
+        try:
+            creds = ServiceAccountCredentials.from_json_keyfile_name(self.creds_file, self.scope)
+            client = gspread.authorize(creds)
+            spreadsheet = client.open_by_url(self.config.google_spreadsheet_url)
+            sheet = spreadsheet.worksheet(self.config.google_worksheet_name)
+            return sheet
+        except Exception as e:
+            logging.error(f"Error accessing Google Sheet: {e}", exc_info=True)
+            return None
+
+    def log_swipe(self, timestamp, badge_id, action_json):
+        if self.sheet:
+            try:
+                row = [timestamp, badge_id, action_json]
+                self.sheet.insert_row(row, 3)
+                logging.info(f"Logged to Google Sheet: {row}")
+            except Exception as e:
+                logging.error(f"Error logging to Google Sheet: {e}", exc_info=True)
+
+    def check(self):
+        logging.info("Checking Google Sheet access...")
+        if self.sheet:
+            try:
+                cell_c1 = self.sheet.cell(1, 3).value # C1
+                logging.info(f"Successfully accessed Google Sheet. Cell C1 contains: '{cell_c1}'")
+
+                headers = self.sheet.row_values(2) # Assuming headers are in row 2
+                expected_headers = ['Timestamp', 'BadgeID', 'Action']
+                if headers[:len(expected_headers)] == expected_headers:
+                    logging.info(f"Google Sheet headers are correct: {headers}")
+                else:
+                    logging.warning(f"Google Sheet headers are not as expected. "
+                                    f"Expected: {expected_headers}, Found: {headers}")
+            except Exception as e:
+                logging.error(f"Error reading from Google Sheet: {e}")
+        else:
+            logging.error("Could not access Google Sheet.")
+
+class FileStorage(Storage):
+    def __init__(self, config):
+        self.config = config
+        self.file_path = self.config.storage_file_path
+
+    def log_swipe(self, timestamp, badge_id, action_json):
+        try:
+            with open(self.file_path, 'a') as f:
+                log_entry = {
+                    'timestamp': timestamp,
+                    'badge_id': badge_id,
+                    'action': json.loads(action_json)
+                }
+                f.write(json.dumps(log_entry) + '\n')
+            logging.info(f"Logged to file: {log_entry}")
+        except Exception as e:
+            logging.error(f"Error logging to file: {e}", exc_info=True)
+    
+    def check(self):
+        logging.info(f"Checking file storage access at {self.file_path}...")
+        try:
+            with open(self.file_path, 'a') as f:
+                pass
+            logging.info("File storage is accessible.")
+        except Exception as e:
+            logging.error(f"Error accessing file storage: {e}", exc_info=True)
 
 # --- Global constants and objects ---
 PORT = 8199
@@ -55,6 +147,14 @@ HA_TOKEN = os.environ.get("SUPERVISOR_TOKEN")
 
 # Load configuration
 config = Config()
+
+# Initialize storage backend
+if config.storage_backend == 'google_sheets':
+    storage = GoogleSheetStorage(config)
+elif config.storage_backend == 'file':
+    storage = FileStorage(config)
+else:
+    raise ValueError(f"Invalid storage backend: {config.storage_backend}")
 
 last_swipe_times = {}  # Stores the last swipe time for each UID
 shift_state = {} # uid -> 'in'/'out'
@@ -67,36 +167,8 @@ for uid in config.badge_map.keys():
 logging.info(f"Loaded {len(config.badges)} badges and {len(config.people)} people.")
 logging.info(f"Notification emails: {config.notification_emails}")
 logging.info(f"Swipe debounce time set to {config.swipe_debounce_minutes} minute(s).")
+logging.info(f"Swipe time buffer set to {config.swipe_time_buffer_minutes} minute(s).")
 
-
-# Google Sheets configuration
-SCOPE = ['https://www.googleapis.com/auth/spreadsheets', "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
-CREDS_FILE = '/share/google_credentials_solalindenstein_docs_user.json'
-SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/1qZ3-8Q3z4Nn3q_V3RArP3p8G_sWn3j8aC5H6j2k_4zE/edit#gid=0' # Dummy URL, replace with your actual URL
-WORKSHEET_NAME = 'Data'
-
-def get_sheet():
-    """Authenticates with Google Sheets and returns the worksheet."""
-    try:
-        creds = ServiceAccountCredentials.from_json_keyfile_name(CREDS_FILE, SCOPE)
-        client = gspread.authorize(creds)
-        spreadsheet = client.open_by_url(SPREADSHEET_URL)
-        sheet = spreadsheet.worksheet(WORKSHEET_NAME)
-        return sheet
-    except Exception as e:
-        logging.error(f"Error accessing Google Sheet: {e}", exc_info=True)
-        return None
-
-def log_swipe_to_sheet(person_name, action, timestamp):
-    """Logs a badge swipe to the Google Sheet."""
-    sheet = get_sheet()
-    if sheet:
-        try:
-            row = [person_name, action, timestamp.strftime("%Y-%m-%d %H:%M:%S")]
-            sheet.append_row(row)
-            logging.info(f"Logged to Google Sheet: {row}")
-        except Exception as e:
-            logging.error(f"Error logging to Google Sheet: {e}", exc_info=True)
 
 async def send_notification(title, message, person=None):
     """Sends a notification using the Home Assistant notify service."""
@@ -163,15 +235,25 @@ async def process_card_swipe(card_uid, data):
                 return web.Response(text=f"Duplicate swipe for {person_name}. Please wait.")
 
         last_swipe_times[sanitized_card_uid] = now
-
+        unix_timestamp = int(now.timestamp())
         logging.info(f"Recognized card for: {person_name}")
 
         current_state = shift_state.get(sanitized_card_uid, 'out')
+        buffer = timedelta(minutes=config.swipe_time_buffer_minutes)
 
         if current_state == 'out':
-            shift_state[sanitized_card_uid] = 'in'
+            new_state = 'in'
+            shift_state[sanitized_card_uid] = new_state
             shift_start_times[sanitized_card_uid] = now
-            log_swipe_to_sheet(person_name, 'in', now)
+            
+            effective_time = (now - buffer).replace(second=0, microsecond=0)
+            action = {
+                'person_id': people_id,
+                'new_state': new_state,
+                'time_effective': int(effective_time.timestamp())
+            }
+            storage.log_swipe(unix_timestamp, sanitized_card_uid, json.dumps(action))
+
             await send_notification(
                 title='HA - Shift Started',
                 message=f"Hi from HA. {person_name} just started their shift.",
@@ -179,10 +261,19 @@ async def process_card_swipe(card_uid, data):
             )
             return web.Response(text=f"Welcome, {person_name}. Your shift has started.")
         else: # current_state == 'in'
-            shift_state[sanitized_card_uid] = 'out'
+            new_state = 'out'
+            shift_state[sanitized_card_uid] = new_state
             start_time = shift_start_times.pop(sanitized_card_uid, now)
             duration = now - start_time
-            log_swipe_to_sheet(person_name, 'out', now)
+
+            effective_time = (now + buffer).replace(second=0, microsecond=0)
+            action = {
+                'person_id': people_id,
+                'new_state': new_state,
+                'time_effective': int(effective_time.timestamp())
+            }
+            storage.log_swipe(unix_timestamp, sanitized_card_uid, json.dumps(action))
+            
             await send_notification(
                 title='HA - Shift Ended',
                 message=f"Hi from HA. {person_name} just ended their shift. Duration: {duration}.",
@@ -245,16 +336,7 @@ if __name__ == "__main__":
     if not HA_TOKEN:
         logging.warning("SUPERVISOR_TOKEN environment variable not set. Home Assistant integration will be disabled.")
 
-    logging.info("Checking Google Sheet access...")
-    sheet = get_sheet()
-    if sheet:
-        try:
-            cell_c1 = sheet.cell(1, 3).value # C1
-            logging.info(f"Successfully accessed Google Sheet. Cell C1 contains: '{cell_c1}'")
-        except Exception as e:
-            logging.error(f"Error reading from Google Sheet: {e}")
-    else:
-        logging.error("Could not access Google Sheet.")
+    storage.check()
 
     logging.info(f"Hello from Badge Reader server, version {config.version}")
     logging.info(f"Starting HTTP server for badge reader on port {PORT}...")
