@@ -1,6 +1,7 @@
 name: Badge Reader
-version: "0.4.0"
+version: "0.4.1"
 slug: badgereader
+init: false
 description: "HTTP server to receive badge reader swipes"
 arch:
   - amd64
