@@ -14,7 +14,6 @@ options:
   notification_service: "quirin_niedernhuber_gmail_com" # Sends using quirin.niedernhuber@gmail.com as sender 
   notification_emails:
     - "quirin.niedernhuber@gmail.com"
-    - "tanja.niedernhuber@gmx.de"
   badges:
     - uid: "DE:76:28:3C"
       peopleID: 0
@@ -27,8 +26,8 @@ options:
       name: "Test Person"
       email: "quirin.niedernhuber@gmail.com"
     - id: 1
-      name: "Nicole"
-      email: "nicole@example.com"
+      name: "Test Nicole"
+      email: "quirin.niedernhuber@gmail.com"
   swipe_debounce_minutes: 1
 schema:
   notification_domain: str

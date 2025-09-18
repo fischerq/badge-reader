@@ -255,8 +255,8 @@ async def process_card_swipe(card_uid, data):
             storage.log_swipe(unix_timestamp, sanitized_card_uid, json.dumps(action))
 
             await send_notification(
-                title='HA - Shift Started',
-                message=f"Hi from HA. {person_name} just started their shift.",
+                title=f"{person_name} - Schicht gestartet",
+                message=f"Hallo {person_name}, deine Schicht hat gerade begonnen. Einen schönen und produktiven Tag!",
                 person=person
             )
             return web.Response(text=f"Welcome, {person_name}. Your shift has started.")
@@ -265,6 +265,11 @@ async def process_card_swipe(card_uid, data):
             shift_state[sanitized_card_uid] = new_state
             start_time = shift_start_times.pop(sanitized_card_uid, now)
             duration = now - start_time
+            
+            total_seconds = duration.total_seconds()
+            hours = int(total_seconds // 3600)
+            minutes = int((total_seconds % 3600) // 60)
+            duration_str = f"{hours} Stunden und {minutes} Minuten"
 
             effective_time = (now + buffer).replace(second=0, microsecond=0)
             action = {
@@ -275,8 +280,8 @@ async def process_card_swipe(card_uid, data):
             storage.log_swipe(unix_timestamp, sanitized_card_uid, json.dumps(action))
             
             await send_notification(
-                title='HA - Shift Ended',
-                message=f"Hi from HA. {person_name} just ended their shift. Duration: {duration}.",
+                title=f"{person_name} - Schicht beendet",
+                message=f"Hallo {person_name}, deine Schicht ist nun zu Ende. Deine heutige Arbeitszeit betrug {duration_str}. Wir wünschen dir einen schönen Feierabend!",
                 person=person
             )
             return web.Response(text=f"Goodbye, {person_name}. Your shift has ended.")
@@ -284,8 +289,8 @@ async def process_card_swipe(card_uid, data):
     else:
         logging.warning(f"Unrecognized card: {card_uid}. Full request data: {data}")
         await send_notification(
-            title='HA - Unrecognized Badge Scan',
-            message=f"Unrecognized card swiped: {card_uid}"
+            title="Unbekannter Badge gescannt",
+            message=f"Hallo, gerade wurde ein unbekannter Badge mit der UID {card_uid} gescannt."
         )
         raise web.HTTPUnauthorized(text="Unrecognized card")
 
