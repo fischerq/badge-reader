@@ -1,5 +1,5 @@
 name: Badge Reader
-version: "0.4.2"
+version: "0.4.3"
 slug: badgereader
 init: false
 description: "HTTP server to receive badge reader swipes"
@@ -54,5 +54,5 @@ schema:
 homeassistant_api: true
 map:
   - "addon_config:rw"
-  - "share"
+  - "share:rw"
   - "data"
