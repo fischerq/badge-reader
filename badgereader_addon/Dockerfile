@@ -14,7 +14,6 @@ RUN pip install --no-cache-dir -r /requirements.txt
 RUN pip install --no-cache-dir git+https://github.com/GrandMoff100/HomeAssistantAPI.git
 
 COPY run.sh /
-COPY config.yaml /
 COPY server.py /
 
 RUN chmod a+x /run.sh

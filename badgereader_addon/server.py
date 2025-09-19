@@ -1,6 +1,5 @@
 import logging
 import os
-import yaml
 import json
 from datetime import datetime, timedelta
 from aiohttp import web
@@ -12,7 +11,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class Config:
-    def __init__(self, config_path='config.yaml'):
+    def __init__(self, config_path='/data/options.json'):
         # Default values
         self.notification_domain = "notify"
         self.notification_service = "gmail_solalindenstein"
@@ -35,8 +34,7 @@ class Config:
     def load_from_file(self, config_path):
         try:
             with open(config_path, 'r') as f:
-                config = yaml.safe_load(f)
-                options = config.get('options', {})
+                options = json.load(f)
                 self.notification_domain = options.get('notification_domain', self.notification_domain)
                 self.notification_service = options.get('notification_service', self.notification_service)
                 self.notification_emails = options.get('notification_emails', self.notification_emails)
@@ -48,10 +46,10 @@ class Config:
                 self.storage_file_path = options.get('storage_file_path', self.storage_file_path)
                 self.google_spreadsheet_url = options.get('google_spreadsheet_url', self.google_spreadsheet_url)
                 self.google_worksheet_name = options.get('google_worksheet_name', self.google_worksheet_name)
-                self.version = config.get('version', self.version)
+                # self.version = config.get('version', self.version) # Version is not in options.json
         except FileNotFoundError:
-            logging.error(f"{config_path} not found. Please ensure it exists in the same directory.")
-        except yaml.YAMLError as e:
+            logging.error(f"{config_path} not found. Please ensure it exists in the add-on's data directory.")
+        except json.JSONDecodeError as e:
             logging.error(f"Error parsing {config_path}: {e}")
 
         # Create lookups for easier access
