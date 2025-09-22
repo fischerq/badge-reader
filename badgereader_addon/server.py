@@ -212,7 +212,16 @@ class FileStorage(Storage):
     def register_shift(self, action):
         person_name = self.config.people_map.get(action['person_id'], {}).get('name')
         full_filename = f"{self.sheets_dir}/monthly_data_{person_name}.xlsx"
-        
+
+        # create file if doesnt exist yet
+        if not os.path.exists(full_filename):
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Data"
+            ws.append(["Badge Reader Data"])
+            ws.append(["Person", "Shift Start", "Shift End", "Shift Duration (min)"])
+            wb.save(filename = full_filename)
+
         wb = openpyxl.load_workbook(filename = full_filename)
         ws = wb.active
         ws.append(action)
