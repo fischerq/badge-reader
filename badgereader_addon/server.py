@@ -212,7 +212,8 @@ class FileStorage(Storage):
     def register_shift(self, action):
         person_name = self.config.people_map.get(action['person_id'], {}).get('name')
         full_filename = f"{self.sheets_dir}/monthly_data_{person_name}.xlsx"
-        wb = load_workbook(filename = full_filename)
+        
+        wb = openpyxl.load_workbook(filename = full_filename)
         ws = wb.active
         ws.append(action)
         wb.save(filename = full_filename)
