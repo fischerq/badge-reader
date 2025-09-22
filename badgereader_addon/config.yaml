@@ -30,7 +30,8 @@ options:
   swipe_debounce_minutes: 1
   swipe_time_buffer_minutes: 3
   storage_backend: "google_sheets"
-  storage_file_path: "/share/swipe_log.jsonl"
+  storage_file_path: "/data/nas_data/swipe_log.jsonl"
+  storage_sheets_dir: "/data/nas_data/"
   google_spreadsheet_url: "https://docs.google.com/spreadsheets/d/1qZ3-8Q3z4Nn3q_V3RArP3p8G_sWn3j8aC5H6j2k_4zE/edit#gid=0"
   google_worksheet_name: "Data"
 schema:
@@ -49,6 +50,7 @@ schema:
   swipe_time_buffer_minutes: int
   storage_backend: list(google_sheets|file)
   storage_file_path: str
+  storage_sheets_dir: str
   google_spreadsheet_url: url
   google_worksheet_name: str
 homeassistant_api: true
@@ -56,3 +58,4 @@ map:
   - "addon_config:rw"
   - "share:rw"
   - "data"
+  - "/mnt/badge_reader_mount:/data/nas_data:rw"

@@ -1,10 +1,12 @@
-import logging
-import os
-import json
-from datetime import datetime, timedelta
-from aiohttp import web
-from homeassistant_api import Client
 import gspread
+import json
+import logging
+import openpyxl
+import os
+
+from aiohttp import web
+from datetime import datetime, timedelta
+from homeassistant_api import Client
 from oauth2client.service_account import ServiceAccountCredentials
 
 # Configure logging
@@ -21,7 +23,8 @@ class Config:
         self.swipe_debounce_minutes = 1
         self.swipe_time_buffer_minutes = 3
         self.storage_backend = "google_sheets"
-        self.storage_file_path = "/share/swipe_log.jsonl"
+        self.storage_file_path = "/data/nas_data/swipe_log.jsonl"
+        self.storage_sheets_dir = "/data/nas_data/"
         self.google_spreadsheet_url = 'https://docs.google.com/spreadsheets/d/1qZ3-8Q3z4Nn3q_V3RArP3p8G_sWn3j8aC5H6j2k_4zE/edit#gid=0' # Dummy URL, replace with your actual URL
         self.google_worksheet_name = 'Data'
         self.version = "unknown"
@@ -44,6 +47,7 @@ class Config:
                 self.swipe_time_buffer_minutes = options.get('swipe_time_buffer_minutes', self.swipe_time_buffer_minutes)
                 self.storage_backend = options.get('storage_backend', self.storage_backend)
                 self.storage_file_path = options.get('storage_file_path', self.storage_file_path)
+                self.storage_sheets_dir = options.get('storage_sheets_dir', self.storage_sheets_dir)
                 self.google_spreadsheet_url = options.get('google_spreadsheet_url', self.google_spreadsheet_url)
                 self.google_worksheet_name = options.get('google_worksheet_name', self.google_worksheet_name)
                 # self.version = config.get('version', self.version) # Version is not in options.json
@@ -67,6 +71,9 @@ class Storage:
         raise NotImplementedError
 
     def read_latest_states(self):
+        raise NotImplementedError
+
+    def register_shift(self, action):
         raise NotImplementedError
 
 class GoogleSheetStorage(Storage):
@@ -147,10 +154,14 @@ class GoogleSheetStorage(Storage):
             logging.error(f"Error reading latest states from Google Sheet: {e}", exc_info=True)
             return {}
 
+    def register_shift(self, action):
+        pass
+
 class FileStorage(Storage):
     def __init__(self, config):
         self.config = config
         self.file_path = self.config.storage_file_path
+        self.sheets_dir = self.config.storage_sheets_dir
 
     def log_swipe(self, timestamp, badge_id, action_json):
         try:
@@ -196,6 +207,13 @@ class FileStorage(Storage):
         except Exception as e:
             logging.error(f"Error reading latest states from file: {e}", exc_info=True)
             return {}
+
+    def register_shift(self, action):
+        full_filename = f"{self.sheets_dir}/monthly_data_{actions.person_name}.xlsx"
+        wb = load_workbook(filename = full_filename)
+        ws = wb.active
+        ws.append(action)
+        wb.save(filename = full_filename)
 
 # --- Global constants and objects ---
 PORT = 8199
@@ -358,7 +376,8 @@ async def process_card_swipe(card_uid, data):
                 'time_effective': int(effective_time.timestamp())
             }
             storage.log_swipe(unix_timestamp, sanitized_card_uid, json.dumps(action))
-            
+            storage.register_shift(action)
+
             await send_notification(
                 title=f"{person_name} - Schicht beendet",
                 message=f"Hallo {person_name}, deine Schicht ist nun zu Ende. Deine heutige Arbeitszeit betrug {duration_str}. Wir wünschen dir einen schönen Feierabend!",
