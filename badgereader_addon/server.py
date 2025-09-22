@@ -209,7 +209,7 @@ class FileStorage(Storage):
             return {}
 
     def register_shift(self, action):
-        full_filename = f"{self.sheets_dir}/monthly_data_{actions.person_name}.xlsx"
+        full_filename = f"{self.sheets_dir}/monthly_data_{action.person_name}.xlsx"
         wb = load_workbook(filename = full_filename)
         ws = wb.active
         ws.append(action)
