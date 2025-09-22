@@ -1,3 +1,4 @@
+import datetime
 import gspread
 import json
 import logging
@@ -209,7 +210,8 @@ class FileStorage(Storage):
             return {}
 
     def register_shift(self, action):
-        full_filename = f"{self.sheets_dir}/monthly_data_{action.person_name}.xlsx"
+        person_name = self.config.people_map.get(action['person_id'], {}).get('name')
+        full_filename = f"{self.sheets_dir}/monthly_data_{person_name}.xlsx"
         wb = load_workbook(filename = full_filename)
         ws = wb.active
         ws.append(action)
@@ -373,7 +375,10 @@ async def process_card_swipe(card_uid, data):
             action = {
                 'person_id': people_id,
                 'new_state': new_state,
-                'time_effective': int(effective_time.timestamp())
+                'time_effective': int(effective_time.timestamp()),
+                'shift_start_timestamp': start_time.timestamp(),
+                'shift_end_timestamp': effective_time.timestamp(),
+                'shift_duration_min': minutes
             }
             storage.log_swipe(unix_timestamp, sanitized_card_uid, json.dumps(action))
             storage.register_shift(action)
