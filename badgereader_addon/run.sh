@@ -16,7 +16,7 @@ bashio::log.info "$(cat /share/badge-reader-mount/testfile.txt)"
 
 # Start the Python HTTP server
 bashio::log.info "Starting Python HTTP server for badge messages..."
-python3 -m badgereader_addon.badgereader.main
+python3 -m badgereader.main
 bashio::log.info "Hello2"
 
 # If server.py exits, log it and keep container alive for debugging if needed,
