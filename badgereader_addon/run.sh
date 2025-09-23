@@ -8,9 +8,9 @@ bashio::log.info "Workdir $PWD"
 #bashio::log.info "$(cat /server.py)"
 #bashio::log.info "--- End of server.py content ---"
 bashio::log.info "--- lsing ---"
-bashio::log.info "$(cd /data/badge-reader && ls)"
+bashio::log.info "$(cd /share/badge-reader-mount && ls)"
 bashio::log.info "--- testfile content ---"
-bashio::log.info "$(cat /data/badge-reader/testfile)"
+bashio::log.info "$(cat /share/badge-reader-mount/testfile.txt)"
 
 # Start the Python HTTP server
 bashio::log.info "Starting Python HTTP server for badge messages..."

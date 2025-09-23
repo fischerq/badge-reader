@@ -24,8 +24,8 @@ class Config:
         self.swipe_debounce_minutes = 1
         self.swipe_time_buffer_minutes = 3
         self.storage_backend = "google_sheets"
-        self.storage_file_path = "/data/badge-reader/swipe_log.jsonl"
-        self.storage_sheets_dir = "/data/badge-reader"
+        self.storage_file_path = "/share/badge-reader-mount/swipe_log.jsonl"
+        self.storage_sheets_dir = "/share/badge-reader-mount"
         self.google_spreadsheet_url = 'https://docs.google.com/spreadsheets/d/1qZ3-8Q3z4Nn3q_V3RArP3p8G_sWn3j8aC5H6j2k_4zE/edit#gid=0' # Dummy URL, replace with your actual URL
         self.google_worksheet_name = 'Data'
         self.version = "unknown"
@@ -463,7 +463,7 @@ if __name__ == "__main__":
     logging.info(f"Hello from Badge Reader server, version {config.version}")
     logging.info(f"Starting HTTP server for badge reader on port {PORT}...")
     logging.info(f"Server listening on 0.0.0.0:{PORT}")
-    with open("/data/badge-reader/testfile.txt") as f:
+    with open("/share/badge-reader-mount/testfile.txt") as f:
         print f.read()
     logging.info(f"Badge messages should be sent to http://<ADDON_IP_ADDRESS>:{PORT}/?accessKey={ACCESS_KEY}")
     web.run_app(app, host='0.0.0.0', port=PORT)
