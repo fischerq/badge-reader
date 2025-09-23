@@ -14,9 +14,8 @@ RUN pip install --no-cache-dir -r /requirements.txt
 RUN pip install --no-cache-dir git+https://github.com/GrandMoff100/HomeAssistantAPI.git
 
 COPY run.sh /
-COPY server.py /
+COPY badgereader_addon/badgereader /badgereader_addon/badgereader
 
 RUN chmod a+x /run.sh
-RUN chmod a+x /server.py
 
 CMD [ "/run.sh" ]
