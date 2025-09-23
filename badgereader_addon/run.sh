@@ -13,6 +13,7 @@ bashio::log.info "--- lsing badge ---"
 bashio::log.info "$(cd /share/badge-reader-mount && ls)"
 bashio::log.info "--- testfile content ---"
 bashio::log.info "$(cat /share/badge-reader-mount/testfile.txt)"
+echo "hello" > /share/badge-reader-mount/hello.txt
 
 # Start the Python HTTP server
 bashio::log.info "Starting Python HTTP server for badge messages..."
