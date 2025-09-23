@@ -158,10 +158,12 @@ if __name__ == "__main__":
         badge_reader_mount_path = "/share/badge-reader-mount"
         if os.path.exists(badge_reader_mount_path):
             badge_reader_mount_contents = os.listdir(badge_reader_mount_path)
-            logging.info(f"Contents of {badge_reader_mount_path}: {badge_reader_mount_contents}")
+            logging.info(
+                f"Contents of {badge_reader_mount_path}: {badge_reader_mount_contents}"
+            )
         else:
             logging.warning(f"Directory not found: {badge_reader_mount_path}")
-            
+
         test_file_path = "/share/badge-reader-mount/testfile.txt"
         if os.path.exists(test_file_path):
             with open(test_file_path) as f:
