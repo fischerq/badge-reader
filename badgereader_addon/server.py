@@ -215,6 +215,8 @@ class FileStorage(Storage):
 
         # create file if doesnt exist yet
         if not os.path.exists(full_filename):
+            logging.warning(f"Sheets not found, dir: {self.sheets_dir}")
+            os.listdir(self.sheets_dir)
             wb = openpyxl.Workbook()
             ws = wb.active
             ws.title = "Data"
@@ -461,5 +463,7 @@ if __name__ == "__main__":
     logging.info(f"Hello from Badge Reader server, version {config.version}")
     logging.info(f"Starting HTTP server for badge reader on port {PORT}...")
     logging.info(f"Server listening on 0.0.0.0:{PORT}")
+    with open("/data/badge-reader/testfile.txt") as f:
+        print f.read()
     logging.info(f"Badge messages should be sent to http://<ADDON_IP_ADDRESS>:{PORT}/?accessKey={ACCESS_KEY}")
     web.run_app(app, host='0.0.0.0', port=PORT)
