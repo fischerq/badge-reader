@@ -1,5 +1,5 @@
 name: Badge Reader
-version: "0.4.10"
+version: "0.4.11"
 slug: badgereader
 init: false
 description: "HTTP server to receive badge reader swipes"
@@ -30,8 +30,8 @@ options:
   swipe_debounce_minutes: 1
   swipe_time_buffer_minutes: 3
   storage_backend: "google_sheets"
-  storage_file_path: "/data/nas_data/swipe_log.jsonl"
-  storage_sheets_dir: "/data/nas_data"
+  storage_file_path: "/data/badge-reader/swipe_log.jsonl"
+  storage_sheets_dir: "/data/badge-reader"
   google_spreadsheet_url: "https://docs.google.com/spreadsheets/d/1qZ3-8Q3z4Nn3q_V3RArP3p8G_sWn3j8aC5H6j2k_4zE/edit#gid=0"
   google_worksheet_name: "Data"
 schema:
@@ -58,4 +58,4 @@ map:
   - "addon_config:rw"
   - "share:rw"
   - "data"
-  - "/mnt/badge_reader_mount:/data/nas_data:rw"
+  - "/mnt/badge-reader-mount:/data/badge-reader:rw"

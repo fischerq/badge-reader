@@ -24,8 +24,8 @@ class Config:
         self.swipe_debounce_minutes = 1
         self.swipe_time_buffer_minutes = 3
         self.storage_backend = "google_sheets"
-        self.storage_file_path = "/data/nas_data/swipe_log.jsonl"
-        self.storage_sheets_dir = "/data/nas_data"
+        self.storage_file_path = "/data/badge-reader/swipe_log.jsonl"
+        self.storage_sheets_dir = "/data/badge-reader"
         self.google_spreadsheet_url = 'https://docs.google.com/spreadsheets/d/1qZ3-8Q3z4Nn3q_V3RArP3p8G_sWn3j8aC5H6j2k_4zE/edit#gid=0' # Dummy URL, replace with your actual URL
         self.google_worksheet_name = 'Data'
         self.version = "unknown"
