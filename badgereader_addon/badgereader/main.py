@@ -148,14 +148,38 @@ if __name__ == "__main__":
             "SUPERVISOR_TOKEN environment variable not set. Home Assistant integration will be disabled."
         )
 
+    # --- Debugging: Log directory contents ---
+    logging.info("--- Logging /share directory contents ---")
+    share_path = "/share"
+    try:
+        share_contents = os.listdir(share_path)
+        logging.info(f"Contents of {share_path}: {share_contents}")
+
+        badge_reader_mount_path = "/share/badge-reader-mount"
+        if os.path.exists(badge_reader_mount_path):
+            badge_reader_mount_contents = os.listdir(badge_reader_mount_path)
+            logging.info(f"Contents of {badge_reader_mount_path}: {badge_reader_mount_contents}")
+        else:
+            logging.warning(f"Directory not found: {badge_reader_mount_path}")
+            
+        test_file_path = "/share/badge-reader-mount/testfile.txt"
+        if os.path.exists(test_file_path):
+            with open(test_file_path) as f:
+                logging.info(f"Contents of {test_file_path}:\n{f.read()}")
+        else:
+            logging.warning(f"File not found: {test_file_path}")
+
+    except Exception as e:
+        logging.error(f"Error listing directory contents: {e}", exc_info=True)
+    logging.info("--- End of directory logging ---")
+    # --- End Debugging ---
+
     storage.check()
     state_manager.initialize_states()
 
     logging.info(f"Hello from Badge Reader server, version {config.version}")
     logging.info(f"Starting HTTP server for badge reader on port {PORT}...")
     logging.info(f"Server listening on 0.0.0.0:{PORT}")
-    with open("/share/badge-reader-mount/testfile.txt") as f:
-        print(f.read())
     logging.info(
         f"Badge messages should be sent to http://<ADDON_IP_ADDRESS>:{PORT}/?accessKey={ACCESS_KEY}"
     )
