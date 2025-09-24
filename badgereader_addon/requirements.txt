@@ -1,4 +1,3 @@
 aiohttp
 pyyaml
 openpyxl
-libnfs-python
