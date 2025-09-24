@@ -3,6 +3,8 @@ FROM $BUILD_FROM
 
 RUN \
   apk add --no-cache \
+    build-base \
+    swig \
     git \
     python3 \
     py3-pip \
