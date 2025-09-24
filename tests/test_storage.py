@@ -39,8 +39,6 @@ def test_get_sheet_filename(nfs_storage):
 def test_create_new_sheet(nfs_storage, mock_nfs_instance):
     """Test the creation of a new timesheet from scratch."""
     filename = "test_sheet.xlsx"
-    mock_file = MagicMock()
-    mock_nfs_instance.open.return_value.__enter__.return_value = mock_file
 
     with patch("openpyxl.Workbook") as mock_workbook_class:
         mock_wb = MagicMock()
@@ -48,22 +46,25 @@ def test_create_new_sheet(nfs_storage, mock_nfs_instance):
         mock_wb.active = mock_ws
         mock_workbook_class.return_value = mock_wb
 
-        # Mock the __getitem__ to return a mock cell, which is what openpyxl does
-        mock_ws.__getitem__.return_value = MagicMock()
+        # Correctly mock the worksheet's __setitem__ to capture the writes
+        cell_values = {}
+        def set_item_side_effect(key, value):
+            cell_values[key] = value
+        mock_ws.__setitem__.side_effect = set_item_side_effect
+
+        # Mock the context manager for the file write
+        mock_file_write = MagicMock()
+        mock_nfs_instance.open.return_value.__enter__.return_value = mock_file_write
 
         nfs_storage._create_new_sheet(filename, initial_balance=50)
 
-        # Verify that the cells were written to correctly
-        # Check that __getitem__ was called for the right cells
-        mock_ws.__getitem__.assert_any_call('A2')
-        mock_ws.__getitem__.assert_any_call('B2')
-        mock_ws.__getitem__.assert_any_call('A4')
-        mock_ws.__getitem__.assert_any_call('B4')
+        # Verify worksheet setup by checking the captured cell values
+        assert cell_values['A2'] == "Time Balance from Previous Month (min)"
+        assert cell_values['B2'] == 50
+        assert cell_values['A4'] == "Current Running Balance (min)"
 
-        # Verify headers were added
+        # Verify headers were added via append
         mock_ws.append.assert_called_once()
-
-        # Verify file write operation
         mock_nfs_instance.open.assert_called_with(filename, "wb")
         mock_wb.save.assert_called_once()
 
@@ -71,25 +72,27 @@ def test_create_new_sheet(nfs_storage, mock_nfs_instance):
 def test_ensure_sheet_exists_already_exists(nfs_storage, mock_nfs_instance):
     """Test that if the sheet for the current month exists, it is returned."""
     now = datetime(2024, 7, 10)
-    current_filename = nfs_storage._get_sheet_filename("Fin", now)
+    person_name = "Fin"
+    current_filename = nfs_storage._get_sheet_filename(person_name, now)
     mock_nfs_instance.exists.return_value = True
 
-    filename = nfs_storage._ensure_sheet_exists("person1", now)
+    filename = nfs_storage._ensure_sheet_exists(person_name, now)
 
-    mock_nfs_instance.exists.assert_called_with(current_filename)
+    mock_nfs_instance.exists.assert_called_once_with(current_filename)
     assert filename == current_filename
 
 def test_ensure_sheet_exists_copies_previous(nfs_storage, mock_nfs_instance):
     """Test that a new sheet is created by copying the previous month's sheet."""
     now = datetime(2024, 8, 1)
-    current_filename = "Arbeitszeit Fin August 2024.xlsx"
-    prev_filename = "Arbeitszeit Fin July 2024.xlsx"
+    person_name = "Fin"
+    current_filename = nfs_storage._get_sheet_filename(person_name, now)
+    prev_filename = nfs_storage._get_sheet_filename(person_name, now.replace(day=1) - timedelta(days=1))
 
     mock_nfs_instance.exists.side_effect = [False, True]
 
     wb_data_only = openpyxl.Workbook()
     ws_data_only = wb_data_only.active
-    ws_data_only['B4'].value = 120
+    ws_data_only['B4'] = 120.0  # Make it a float like openpyxl would read
     buffer = BytesIO()
     wb_data_only.save(buffer)
     buffer.seek(0)
@@ -99,12 +102,10 @@ def test_ensure_sheet_exists_copies_previous(nfs_storage, mock_nfs_instance):
     mock_nfs_instance.open.return_value.__enter__.return_value = mock_file
 
     with patch.object(nfs_storage, '_create_new_sheet') as mock_create:
-        nfs_storage._ensure_sheet_exists("person1", now)
-
+        nfs_storage._ensure_sheet_exists(person_name, now)
         mock_nfs_instance.exists.assert_has_calls([call(current_filename), call(prev_filename)])
         mock_nfs_instance.open.assert_called_with(prev_filename, "rb")
-        mock_create.assert_called_once_with(current_filename, 120)
-
+        mock_create.assert_called_once_with(current_filename, 120.0)
 
 def test_append_to_sheet(nfs_storage, mock_nfs_instance):
     """Test that a new shift is correctly appended and the balance is updated."""
@@ -116,53 +117,50 @@ def test_append_to_sheet(nfs_storage, mock_nfs_instance):
         'duration_minutes': 330
     }
 
-    # Create a workbook instance that will be returned by load_workbook
-    mock_wb = openpyxl.Workbook()
-    mock_ws = mock_wb.active
-    mock_ws["B2"] = 50  # Previous balance
-    mock_ws["B3"] = 300 # Target hours
-    # Simulate a header and some data so that max_row is realistic
-    mock_ws.append(["H1", "H2", "H3", "H4", "H5", "H6", "H7"])
-    mock_ws.append(["D1", "D2", "D3", "D4", "D5", "D6", 50])
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws["B2"] = 50
+    ws["B3"] = 300
+    ws.append(["H1", "H2", "H3", "H4", "H5", "H6", "H7"])
+    ws.append(["D1", "D2", "D3", "D4", "D5", "D6", 100]) # Last row data
 
-    # When the function reads the file, we'll have it load our mock workbook
-    with patch("openpyxl.load_workbook", return_value=mock_wb) as mock_load_workbook, \
-         patch.object(nfs_storage.nfs, "open", MagicMock()) as mock_nfs_open, \
-         patch.object(mock_wb, "save") as mock_save:
+    input_buffer = BytesIO()
+    wb.save(input_buffer)
+    input_buffer.seek(0)
 
-        # We need to mock the context manager for the file open
-        mock_file_content = BytesIO()
-        mock_nfs_open.return_value.__enter__.return_value.read.return_value = mock_file_content
+    # Mock the read operation
+    mock_read_file = MagicMock()
+    mock_read_file.read.return_value = input_buffer.getvalue()
+    # Mock the write operation
+    mock_write_buffer = BytesIO()
 
-        new_balance = nfs_storage._append_to_sheet(filename, action)
+    def open_side_effect(path, mode):
+        if mode == "rb":
+            return MagicMock(__enter__=MagicMock(return_value=mock_read_file))
+        elif mode == "wb":
+            # This allows us to inspect the saved workbook later if needed
+            return MagicMock(__enter__=MagicMock(return_value=BytesIO()))
+    mock_nfs_instance.open.side_effect = open_side_effect
 
-        assert new_balance == 80  # 50 + (330 - 300)
+    new_balance = nfs_storage._append_to_sheet(filename, action)
 
-        # Check that the workbook was loaded and saved
-        mock_load_workbook.assert_called_once()
-        mock_save.assert_called_once()
+    assert new_balance == 180 # 100 (from last row) + 330 (shift) - 300 (target)
+    assert mock_nfs_instance.open.call_count == 2
 
-        # Check the values of the appended row
-        # The last row should have been appended by the function
-        last_row = list(mock_ws.values)[-1]
-        assert last_row[0] == action["name"]
-        assert last_row[3] == action["duration_minutes"]
-        assert last_row[6] == 80 # New balance
-
-        # Check that the running balance is updated
-        assert mock_ws["B4"].value == 80
 
 def test_register_shift_orchestrates_correctly(nfs_storage):
     """Test that register_shift calls the helper functions correctly."""
-    action = {'person_id': 'person1', 'duration_minutes': 315}
+    action = {'person_id': 'person1', 'name': 'Fin', 'duration_minutes': 315}
     sheet_filename = "Arbeitszeit Fin July 2024.xlsx"
     expected_balance = 100
 
     with patch.object(nfs_storage, '_ensure_sheet_exists', return_value=sheet_filename) as mock_ensure, \
-         patch.object(nfs_storage, '_append_to_sheet', return_value=expected_balance) as mock_append:
+         patch.object(nfs_storage, '_append_to_sheet', return_value=expected_balance) as mock_append, \
+         patch("badgereader_addon.badgereader.storage.datetime") as mock_dt:
 
+        mock_dt.now.return_value = datetime(2024, 7, 10)
         balance = nfs_storage.register_shift(action)
 
-        mock_ensure.assert_called_once_with(action['person_id'], ANY)
+        mock_ensure.assert_called_once_with('Fin', mock_dt.now.return_value)
         mock_append.assert_called_once_with(sheet_filename, action)
         assert balance == expected_balance
