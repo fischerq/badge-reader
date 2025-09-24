@@ -12,11 +12,8 @@ class Config:
         self.people = []
         self.swipe_debounce_minutes = 1
         self.swipe_time_buffer_minutes = 3
-        self.storage_backend = "google_sheets"
-        self.storage_file_path = "/share/badge-reader-mount/swipe_log.jsonl"
-        self.storage_sheets_dir = "/share/badge-reader-mount"
-        self.google_spreadsheet_url = "https://docs.google.com/spreadsheets/d/1qZ3-8Q3z4Nn3q_V3RArP3p8G_sWn3j8aC5H6j2k_4zE/edit#gid=0"  # Dummy URL, replace with your actual URL
-        self.google_worksheet_name = "Data"
+        self.nfs_server_address = "192.168.25.165"
+        self.nfs_share_path = "/volume1/badge-reader"
         self.version = "unknown"
         self.people_map = {}
         self.badge_map = {}
@@ -45,20 +42,11 @@ class Config:
                 self.swipe_time_buffer_minutes = options.get(
                     "swipe_time_buffer_minutes", self.swipe_time_buffer_minutes
                 )
-                self.storage_backend = options.get(
-                    "storage_backend", self.storage_backend
+                self.nfs_server_address = options.get(
+                    "nfs_server_address", self.nfs_server_address
                 )
-                self.storage_file_path = options.get(
-                    "storage_file_path", self.storage_file_path
-                )
-                self.storage_sheets_dir = options.get(
-                    "storage_sheets_dir", self.storage_sheets_dir
-                )
-                self.google_spreadsheet_url = options.get(
-                    "google_spreadsheet_url", self.google_spreadsheet_url
-                )
-                self.google_worksheet_name = options.get(
-                    "google_worksheet_name", self.google_worksheet_name
+                self.nfs_share_path = options.get(
+                    "nfs_share_path", self.nfs_share_path
                 )
                 # self.version = config.get('version', self.version) # Version is not in options.json
         except FileNotFoundError:

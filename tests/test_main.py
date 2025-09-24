@@ -35,6 +35,7 @@ mock_oauth2client = MagicMock()
 sys.modules["oauth2client"] = mock_oauth2client
 sys.modules["oauth2client.service_account"] = mock_oauth2client.service_account
 sys.modules["homeassistant_api"] = MagicMock()
+sys.modules["libnfs"] = MagicMock()
 
 from badgereader.main import handle_post, handle_get
 

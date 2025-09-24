@@ -53,11 +53,14 @@ async def send_shift_start_notification(config, ha_url, ha_token, person):
     await _send_notification(config, ha_url, ha_token, title, message, person)
 
 
-async def send_shift_end_notification(config, ha_url, ha_token, person, duration_str):
+async def send_shift_end_notification(config, ha_url, ha_token, person, duration_str, new_balance):
     """Sends a notification when a shift ends."""
     person_name = person["name"]
     title = f"{person_name} - Schicht beendet"
-    message = f"Hallo {person_name}, deine Schicht ist nun zu Ende. Deine heutige Arbeitszeit betrug {duration_str}. Wir wünschen dir einen schönen Feierabend!"
+    message = f"Hallo {person_name}, deine Schicht ist nun zu Ende. Deine heutige Arbeitszeit betrug {duration_str}."
+    if new_balance is not None:
+        message += f" Dein neuer Zeitsaldo beträgt {new_balance} Minuten."
+    message += " Wir wünschen dir einen schönen Feierabend!"
     await _send_notification(config, ha_url, ha_token, title, message, person)
 
 

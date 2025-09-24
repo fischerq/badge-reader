@@ -5,6 +5,7 @@
   channel = "stable-24.05"; # or "unstable"
   # Use https://search.nixos.org/packages to find packages
   packages = [
+    pkgs.libnfs
     pkgs.python312
     pkgs.python312Packages.pip
     pkgs.python312Packages.black

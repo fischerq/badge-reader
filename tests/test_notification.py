@@ -8,7 +8,7 @@ import sys
 mock_homeassistant_api = MagicMock()
 sys.modules["homeassistant_api"] = mock_homeassistant_api
 
-from badgereader.notification import (
+from badgereader_addon.badgereader.notification import (
     _send_notification,
     send_shift_start_notification,
     send_shift_end_notification,
@@ -25,7 +25,7 @@ def mock_config():
     return config
 
 
-@patch("badgereader.notification.Client")
+@patch("badgereader_addon.badgereader.notification.Client")
 def test_send_notification_success(mock_client_constructor, mock_config):
     """Test that _send_notification successfully sends a notification."""
 
@@ -92,7 +92,7 @@ def test_send_notification_no_recipients():
     asyncio.run(run_test())
 
 
-@patch("badgereader.notification._send_notification", new_callable=AsyncMock)
+@patch("badgereader_addon.badgereader.notification._send_notification", new_callable=AsyncMock)
 def test_send_shift_start_notification(mock_send, mock_config):
     """Test the content of the shift start notification."""
 
@@ -111,27 +111,28 @@ def test_send_shift_start_notification(mock_send, mock_config):
     asyncio.run(run_test())
 
 
-@patch("badgereader.notification._send_notification", new_callable=AsyncMock)
+@patch("badgereader_addon.badgereader.notification._send_notification", new_callable=AsyncMock)
 def test_send_shift_end_notification(mock_send, mock_config):
     """Test the content of the shift end notification."""
 
     async def run_test():
         person = {"name": "Test User"}
         duration = "8 hours"
-        await send_shift_end_notification(mock_config, "url", "token", person, duration)
+        new_balance = 100
+        await send_shift_end_notification(mock_config, "url", "token", person, duration, new_balance)
         mock_send.assert_awaited_once_with(
             mock_config,
             "url",
             "token",
             f"{person['name']} - Schicht beendet",
-            f"Hallo {person['name']}, deine Schicht ist nun zu Ende. Deine heutige Arbeitszeit betrug {duration}. Wir wünschen dir einen schönen Feierabend!",
+            f"Hallo {person['name']}, deine Schicht ist nun zu Ende. Deine heutige Arbeitszeit betrug {duration}. Dein neuer Zeitsaldo beträgt {new_balance} Minuten. Wir wünschen dir einen schönen Feierabend!",
             person,
         )
 
     asyncio.run(run_test())
 
 
-@patch("badgereader.notification._send_notification", new_callable=AsyncMock)
+@patch("badgereader_addon.badgereader.notification._send_notification", new_callable=AsyncMock)
 def test_send_unrecognized_card_notification(mock_send, mock_config):
     """Test the content of the unrecognized card notification."""
 

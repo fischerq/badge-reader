@@ -5,7 +5,8 @@ RUN \
   apk add --no-cache \
     git \
     python3 \
-    py3-pip
+    py3-pip \
+    libnfs
 
 COPY requirements.txt /
 RUN python3 -m venv /opt/venv

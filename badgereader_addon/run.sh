@@ -4,9 +4,9 @@ bashio::log.info "NFC Badge Reader Addon starting..."
 
 bashio::log.info "Workdir $PWD"
 
-#bashio::log.info "--- Start of server.py content ---"
-#bashio::log.info "$(cat /server.py)"
-#bashio::log.info "--- End of server.py content ---"
+bashio::log.info "--- Start of server.py content ---"
+bashio::log.info "$(cat /server.py)"
+bashio::log.info "--- End of server.py content ---"
 bashio::log.info "--- lsing share---"
 bashio::log.info "$(cd /share && ls)"
 bashio::log.info "--- lsing badge ---"
@@ -14,6 +14,9 @@ bashio::log.info "$(cd /share/badge-reader-mount && ls)"
 bashio::log.info "--- testfile content ---"
 bashio::log.info "$(cat /share/badge-reader-mount/testfile.txt)"
 echo "hello" > /share/badge-reader-mount/hello.txt
+bashio::log.info "--- lsing badge ---"
+bashio::log.info "$(cd /share/badge-reader-mount && ls)"
+bashio::log.info "$(cat /share/badge-reader-mount/hello.txt)"
 
 # Start the Python HTTP server
 bashio::log.info "Starting Python HTTP server for badge messages..."

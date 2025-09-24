@@ -7,7 +7,7 @@ from aiohttp import web
 from datetime import datetime, timedelta
 
 from .config import Config
-from .storage import GoogleSheetStorage, FileStorage
+from .storage import NFSStorage
 from .state_manager import StateManager
 from .notification import (
     send_shift_start_notification,
@@ -30,12 +30,7 @@ HA_TOKEN = os.environ.get("SUPERVISOR_TOKEN")
 config = Config()
 
 # Initialize storage backend
-if config.storage_backend == "google_sheets":
-    storage = GoogleSheetStorage(config)
-elif config.storage_backend == "file":
-    storage = FileStorage(config)
-else:
-    raise ValueError(f"Invalid storage backend: {config.storage_backend}")
+storage = NFSStorage(config)
 
 # Initialize state manager
 state_manager = StateManager(config, storage)
@@ -82,9 +77,9 @@ async def process_card_swipe(card_uid, data):
             await send_shift_start_notification(config, HA_URL, HA_TOKEN, person)
             return web.Response(text=f"Welcome, {person_name}. Your shift has started.")
         else:  # new_state == 'out'
-            storage.register_shift(action)
+            new_balance = storage.register_shift(action)
             await send_shift_end_notification(
-                config, HA_URL, HA_TOKEN, person, duration_str
+                config, HA_URL, HA_TOKEN, person, duration_str, new_balance
             )
             return web.Response(text=f"Goodbye, {person_name}. Your shift has ended.")
 
@@ -147,34 +142,6 @@ if __name__ == "__main__":
         logging.warning(
             "SUPERVISOR_TOKEN environment variable not set. Home Assistant integration will be disabled."
         )
-
-    # --- Debugging: Log directory contents ---
-    logging.info("--- Logging /share directory contents ---")
-    share_path = "/share"
-    try:
-        share_contents = os.listdir(share_path)
-        logging.info(f"Contents of {share_path}: {share_contents}")
-
-        badge_reader_mount_path = "/share/badge-reader-mount"
-        if os.path.exists(badge_reader_mount_path):
-            badge_reader_mount_contents = os.listdir(badge_reader_mount_path)
-            logging.info(
-                f"Contents of {badge_reader_mount_path}: {badge_reader_mount_contents}"
-            )
-        else:
-            logging.warning(f"Directory not found: {badge_reader_mount_path}")
-
-        test_file_path = "/share/badge-reader-mount/testfile.txt"
-        if os.path.exists(test_file_path):
-            with open(test_file_path) as f:
-                logging.info(f"Contents of {test_file_path}:\n{f.read()}")
-        else:
-            logging.warning(f"File not found: {test_file_path}")
-
-    except Exception as e:
-        logging.error(f"Error listing directory contents: {e}", exc_info=True)
-    logging.info("--- End of directory logging ---")
-    # --- End Debugging ---
 
     storage.check()
     state_manager.initialize_states()

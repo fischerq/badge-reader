@@ -1,5 +1,5 @@
 name: Badge Reader
-version: "0.5.3"
+version: "0.5.4"
 slug: badgereader
 init: false
 description: "HTTP server to receive badge reader swipes"
@@ -29,11 +29,8 @@ options:
       email: "quirin.niedernhuber@gmail.com"
   swipe_debounce_minutes: 1
   swipe_time_buffer_minutes: 3
-  storage_backend: "google_sheets"
-  storage_file_path: "/share/badge-reader-mount/swipe_log.jsonl"
-  storage_sheets_dir: "/share/badge-reader-mount"
-  google_spreadsheet_url: "https://docs.google.com/spreadsheets/d/1qZ3-8Q3z4Nn3q_V3RArP3p8G_sWn3j8aC5H6j2k_4zE/edit#gid=0"
-  google_worksheet_name: "Data"
+  nfs_server_address: "192.168.25.165"
+  nfs_share_path: "/volume1/badge-reader"
 schema:
   notification_domain: str
   notification_service: str
@@ -48,11 +45,8 @@ schema:
       email: str
   swipe_debounce_minutes: int
   swipe_time_buffer_minutes: int
-  storage_backend: list(google_sheets|file)
-  storage_file_path: str
-  storage_sheets_dir: str
-  google_spreadsheet_url: url
-  google_worksheet_name: str
+  nfs_server_address: str
+  nfs_share_path: str
 homeassistant_api: true
 map:
   - "addon_config:rw"
