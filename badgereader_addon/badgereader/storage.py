@@ -30,6 +30,7 @@ class NFSStorage(Storage):
         self.log_file_path = "swipe_log.jsonl"
 
     def log_swipe(self, timestamp, badge_id, action_json):
+        f = None
         try:
             log_entry = {
                 "timestamp": timestamp,
@@ -37,11 +38,14 @@ class NFSStorage(Storage):
                 "action": json.loads(action_json),
             }
             log_line = json.dumps(log_entry) + "\n"
-            with self.nfs.open(self.log_file_path, "a") as f:
-                f.write(log_line.encode())
+            f = self.nfs.open(self.log_file_path, "a")
+            f.write(log_line.encode())
             logging.info(f"Logged to NFS: {log_entry}")
         except Exception as e:
             logging.error(f"Error logging to NFS: {e}", exc_info=True)
+        finally:
+            if f:
+                f.close()
 
     def check(self):
         logging.info(f"Checking NFS storage access at {self.config.nfs_server_address}:{self.config.nfs_share_path}...")
@@ -54,25 +58,30 @@ class NFSStorage(Storage):
     def read_latest_states(self):
         logging.info("Reading latest states from NFS...")
         latest_states = {}
+        f = None
         try:
             if not self.nfs.isfile(self.log_file_path):
                 logging.warning(f"Storage file not found on NFS: {self.log_file_path}")
                 return {}
 
-            with self.nfs.open(self.log_file_path, "r") as f:
-                for line in f:
-                    log_entry = json.loads(line)
-                    badge_id = log_entry["badge_id"].strip().lower()
-                    if badge_id in self.config.badge_map:
-                        latest_states[badge_id] = {
-                            "state": log_entry["action"].get("new_state"),
-                            "timestamp": log_entry["timestamp"],
-                        }
+            f = self.nfs.open(self.log_file_path, "r")
+            content = f.read()
+            for line in content.splitlines():
+                log_entry = json.loads(line)
+                badge_id = log_entry["badge_id"].strip().lower()
+                if badge_id in self.config.badge_map:
+                    latest_states[badge_id] = {
+                        "state": log_entry["action"].get("new_state"),
+                        "timestamp": log_entry["timestamp"],
+                    }
             logging.info(f"Found {len(latest_states)} latest states in NFS.")
             return latest_states
         except Exception as e:
             logging.error(f"Error reading latest states from NFS: {e}", exc_info=True)
             return {}
+        finally:
+            if f:
+                f.close()
 
     def _get_sheet_filename(self, person_name, date_obj):
         month_str = date_obj.strftime('%B')
@@ -80,6 +89,7 @@ class NFSStorage(Storage):
         return f"Arbeitszeit {person_name} {month_str} {year}.xlsx"
 
     def _create_new_sheet(self, filename, initial_balance=0):
+        f = None
         try:
             wb = openpyxl.Workbook()
             ws = wb.active
@@ -103,13 +113,16 @@ class NFSStorage(Storage):
             wb.save(buffer)
             buffer.seek(0)
 
-            with self.nfs.open(filename, "wb") as f:
-                f.write(buffer.read())
+            f = self.nfs.open(filename, "wb")
+            f.write(buffer.read())
             logging.info(f"Successfully created new sheet: {filename}")
             return True
         except Exception as e:
             logging.error(f"Error creating new sheet {filename}: {e}", exc_info=True)
             return False
+        finally:
+            if f:
+                f.close()
 
     def _ensure_sheet_exists(self, person_name, now):
         current_filename = self._get_sheet_filename(person_name, now)
@@ -126,20 +139,24 @@ class NFSStorage(Storage):
         initial_balance = 0
         if self.nfs.isfile(prev_month_filename):
             logging.info(f"Found previous month's sheet: {prev_month_filename}. Reading end of month balance.")
+            f = None
             try:
-                with self.nfs.open(prev_month_filename, "rb") as f:
-                    file_content = f.read()
-                    workbook_stream = BytesIO(file_content)
-                    # Use data_only=True to read the calculated value of a formula
-                    wb_data_only = openpyxl.load_workbook(workbook_stream, data_only=True)
-                    ws_data_only = wb_data_only.active
-                    balance_value = ws_data_only['B4'].value
-                    if balance_value is not None:
-                        initial_balance = float(balance_value)
-                    logging.info(f"Balance from previous month is {initial_balance}")
+                f = self.nfs.open(prev_month_filename, "rb")
+                file_content = f.read()
+                workbook_stream = BytesIO(file_content)
+                # Use data_only=True to read the calculated value of a formula
+                wb_data_only = openpyxl.load_workbook(workbook_stream, data_only=True)
+                ws_data_only = wb_data_only.active
+                balance_value = ws_data_only['B4'].value
+                if balance_value is not None:
+                    initial_balance = float(balance_value)
+                logging.info(f"Balance from previous month is {initial_balance}")
 
             except Exception as e:
                 logging.error(f"Error reading balance from {prev_month_filename}: {e}", exc_info=True)
+            finally:
+                if f:
+                    f.close()
 
         if self._create_new_sheet(current_filename, initial_balance):
             return current_filename
@@ -147,17 +164,19 @@ class NFSStorage(Storage):
         return None  # Indicate failure
 
     def _append_to_sheet(self, filename, action):
+        f_read = None
+        f_write = None
         try:
-            with self.nfs.open(filename, "rb") as f:
-                file_content = f.read()
-                workbook_stream = BytesIO(file_content)
-                wb = openpyxl.load_workbook(workbook_stream)
+            f_read = self.nfs.open(filename, "rb")
+            file_content = f_read.read()
+            workbook_stream = BytesIO(file_content)
+            wb = openpyxl.load_workbook(workbook_stream)
 
             ws = wb.active
 
             # Find the last row with data
             last_row = ws.max_row
-            
+
             # Determine the previous running balance
             if last_row < 6: # Header is on row 5, so first data row is 6
                 previous_balance = ws['B2'].value # From previous month
@@ -187,13 +206,18 @@ class NFSStorage(Storage):
             wb.save(buffer)
             buffer.seek(0)
 
-            with self.nfs.open(filename, "wb") as f:
-                f.write(buffer.read())
+            f_write = self.nfs.open(filename, "wb")
+            f_write.write(buffer.read())
             logging.info(f"Successfully registered shift in {filename}")
             return new_balance
         except Exception as e:
             logging.error(f"Error appending to sheet {filename}: {e}", exc_info=True)
             return None
+        finally:
+            if f_read:
+                f_read.close()
+            if f_write:
+                f_write.close()
 
     def register_shift(self, action):
         person_name = action.get("name")
