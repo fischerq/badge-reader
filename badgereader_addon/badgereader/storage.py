@@ -25,7 +25,8 @@ class Storage:
 class NFSStorage(Storage):
     def __init__(self, config):
         self.config = config
-        self.nfs = NFS(self.config.nfs_server_address, self.config.nfs_share_path)
+        nfs_url = f"nfs://{self.config.nfs_server_address}{self.config.nfs_share_path}"
+        self.nfs = NFS(nfs_url)
         self.log_file_path = "swipe_log.jsonl"
 
     def log_swipe(self, timestamp, badge_id, action_json):
