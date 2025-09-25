@@ -8,6 +8,7 @@ RUN \
     git \
     python3 \
     py3-pip \
+    python3-dev \
     libnfs
 
 COPY requirements.txt /
