@@ -9,7 +9,7 @@ RUN \
     python3 \
     py3-pip \
     python3-dev \
-    libnfs
+    libnfs-dev
 
 COPY requirements.txt /
 RUN python3 -m venv /opt/venv
