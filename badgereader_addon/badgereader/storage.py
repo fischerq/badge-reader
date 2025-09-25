@@ -55,7 +55,7 @@ class NFSStorage(Storage):
         logging.info("Reading latest states from NFS...")
         latest_states = {}
         try:
-            if not self.nfs.exists(self.log_file_path):
+            if not self.nfs.isfile(self.log_file_path):
                 logging.warning(f"Storage file not found on NFS: {self.log_file_path}")
                 return {}
 
@@ -114,7 +114,7 @@ class NFSStorage(Storage):
     def _ensure_sheet_exists(self, person_name, now):
         current_filename = self._get_sheet_filename(person_name, now)
 
-        if self.nfs.exists(current_filename):
+        if self.nfs.isfile(current_filename):
             return current_filename
 
         logging.info(f"Sheet for {person_name} for {now.strftime('%B')} {now.year} not found. Looking for previous month's sheet.")
@@ -124,7 +124,7 @@ class NFSStorage(Storage):
         prev_month_filename = self._get_sheet_filename(person_name, last_day_of_previous_month)
 
         initial_balance = 0
-        if self.nfs.exists(prev_month_filename):
+        if self.nfs.isfile(prev_month_filename):
             logging.info(f"Found previous month's sheet: {prev_month_filename}. Reading end of month balance.")
             try:
                 with self.nfs.open(prev_month_filename, "rb") as f:

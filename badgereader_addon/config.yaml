@@ -1,5 +1,5 @@
 name: Badge Reader
-version: "0.6.4"
+version: "0.6.5"
 slug: badgereader
 init: false
 description: "HTTP server to receive badge reader swipes"
