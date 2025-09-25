@@ -2,10 +2,11 @@ import json
 import logging
 import os
 import openpyxl
+import locale
 from libnfs import NFS
 from datetime import datetime, timedelta
 from io import BytesIO
-
+from openpyxl.styles import Font
 
 # --- Storage Classes ---
 class Storage:
@@ -28,6 +29,12 @@ class NFSStorage(Storage):
         nfs_url = f"nfs://{self.config.nfs_server_address}{self.config.nfs_share_path}"
         self.nfs = NFS(nfs_url)
         self.log_file_path = "swipe_log.jsonl"
+        # Set locale for German month names
+        try:
+            locale.setlocale(locale.LC_TIME, 'de_DE.UTF-8')
+        except locale.Error:
+            logging.warning("Could not set locale to de_DE.UTF-8. Month names may not be in German.")
+
 
     def log_swipe(self, timestamp, badge_id, action_json):
         f = None
@@ -93,21 +100,31 @@ class NFSStorage(Storage):
         try:
             wb = openpyxl.Workbook()
             ws = wb.active
-            ws.title = "Data"
-            ws['A1'] = "Badge Reader Data"
+            ws.title = "Daten"
+            ws['A1'] = "Ausweisleser Daten"
 
-            ws['A2'] = "Time Balance from Previous Month (min)"
+            ws['A2'] = "Zeitguthaben aus dem Vormonat (min)"
             ws['B2'] = initial_balance
 
-            ws['A3'] = "Target Hours per Shift (min)"
+            ws['A3'] = "Soll-Stunden pro Schicht (min)"
             ws['B3'] = 300  # 5 hours * 60 minutes
 
-            ws['A4'] = "Current Running Balance (min)"
-            ws['B4'] = initial_balance # Initially the same as the start balance
+            ws['A4'] = "Aktueller Laufender Saldo (min)"
+            ws['B4'] = f'=SUM($B$2, G6:G500)' # Formula to auto-update the running balance
 
             # Headers for the data table
-            headers = ["Person", "Shift Start", "Shift End", "Shift Duration (min)", "Target for Day (min)", "Net Change for Day (min)", "Running Balance (min)"]
+            headers = ["Tag", "Ereignis", "Schichtbeginn", "Schichtende", "Schichtdauer (HH:MM)", "Tages-Soll (min)", "Tages-Nettoveränderung (min)", "Laufender Saldo (min)"]
             ws.append(headers)
+            
+            # Make header bold
+            bold_font = Font(bold=True)
+            for cell in ws[5]: # Headers are on row 5
+                cell.font = bold_font
+
+            # Autosize columns
+            for column_cells in ws.columns:
+                length = max(len(str(cell.value or "")) for cell in column_cells)
+                ws.column_dimensions[column_cells[0].column_letter].width = length + 2
 
             buffer = BytesIO()
             wb.save(buffer)
@@ -174,33 +191,51 @@ class NFSStorage(Storage):
 
             ws = wb.active
 
-            # Find the last row with data
-            last_row = ws.max_row
+            new_row_num = ws.max_row + 1
 
-            # Determine the previous running balance
-            if last_row < 6: # Header is on row 5, so first data row is 6
-                previous_balance = ws['B2'].value # From previous month
-            else:
-                previous_balance = ws.cell(row=last_row, column=7).value
+            shift_start_ts = action.get('shift_start_timestamp')
+            shift_end_ts = action.get('shift_end_timestamp')
+            
+            if not shift_start_ts or not shift_end_ts:
+                logging.error(f"Action is missing timestamp information: {action}")
+                return None
+            
+            start_dt = datetime.fromtimestamp(shift_start_ts)
+            end_dt = datetime.fromtimestamp(shift_end_ts)
+            
+            day_str = start_dt.strftime('%Y-%m-%d')
+            start_time_str = start_dt.strftime('%H:%M')
+            end_time_str = end_dt.strftime('%H:%M')
+            event_str = "Arbeitsschicht"
 
-            shift_duration = action.get('duration_minutes', 0)
+            shift_duration_minutes = action.get('shift_duration_min', 0)
+            
+            duration_hours = shift_duration_minutes // 60
+            duration_mins_rem = shift_duration_minutes % 60
+            duration_str = f"{duration_hours:02d}:{duration_mins_rem:02d}"
+
             target_for_day = ws['B3'].value
-            net_change = shift_duration - target_for_day
-            new_balance = previous_balance + net_change
+            net_change = shift_duration_minutes - target_for_day
+            
+            # Formula for the running balance in column H
+            running_balance_formula = f"=SUM($B$2,G$6:G{new_row_num})"
 
             row_data = [
-                action.get('name'),
-                action.get('shift_start'),
-                action.get('shift_end'),
-                shift_duration,
+                day_str,
+                event_str,
+                start_time_str,
+                end_time_str,
+                duration_str,
                 target_for_day,
                 net_change,
-                new_balance
+                running_balance_formula
             ]
             ws.append(row_data)
 
-            # Update the current running balance in the header
-            ws['B4'] = new_balance
+            # Autosize columns
+            for column_cells in ws.columns:
+                length = max(len(str(cell.value or "")) for cell in column_cells)
+                ws.column_dimensions[column_cells[0].column_letter].width = length + 2
 
             buffer = BytesIO()
             wb.save(buffer)
@@ -209,7 +244,7 @@ class NFSStorage(Storage):
             f_write = self.nfs.open(filename, "wb")
             f_write.write(bytearray(buffer.read()))
             logging.info(f"Successfully registered shift in {filename}")
-            return new_balance
+            return True # Return success
         except Exception as e:
             logging.error(f"Error appending to sheet {filename}: {e}", exc_info=True)
             return None
