@@ -39,7 +39,7 @@ class NFSStorage(Storage):
             }
             log_line = json.dumps(log_entry) + "\n"
             f = self.nfs.open(self.log_file_path, "a")
-            f.write(log_line.encode())
+            f.write(bytearray(log_line, 'utf-8'))
             logging.info(f"Logged to NFS: {log_entry}")
         except Exception as e:
             logging.error(f"Error logging to NFS: {e}", exc_info=True)
@@ -114,7 +114,7 @@ class NFSStorage(Storage):
             buffer.seek(0)
 
             f = self.nfs.open(filename, "wb")
-            f.write(buffer.read())
+            f.write(bytearray(buffer.read()))
             logging.info(f"Successfully created new sheet: {filename}")
             return True
         except Exception as e:
@@ -207,7 +207,7 @@ class NFSStorage(Storage):
             buffer.seek(0)
 
             f_write = self.nfs.open(filename, "wb")
-            f_write.write(buffer.read())
+            f_write.write(bytearray(buffer.read()))
             logging.info(f"Successfully registered shift in {filename}")
             return new_balance
         except Exception as e:
