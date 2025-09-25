@@ -77,9 +77,9 @@ async def process_card_swipe(card_uid, data):
             await send_shift_start_notification(config, HA_URL, HA_TOKEN, person)
             return web.Response(text=f"Welcome, {person_name}. Your shift has started.")
         else:  # new_state == 'out'
-            new_balance = storage.register_shift(action)
+            storage.register_shift(action)
             await send_shift_end_notification(
-                config, HA_URL, HA_TOKEN, person, duration_str, new_balance
+                config, HA_URL, HA_TOKEN, person, duration_str
             )
             return web.Response(text=f"Goodbye, {person_name}. Your shift has ended.")
 
