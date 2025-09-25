@@ -4,7 +4,7 @@ import os
 import openpyxl
 import locale
 from libnfs import NFS
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date, time
 from io import BytesIO
 from openpyxl.styles import Font
 
@@ -95,7 +95,7 @@ class NFSStorage(Storage):
         year = date_obj.year
         return f"Arbeitszeit {person_name} {month_str} {year}.xlsx"
 
-    def _create_new_sheet(self, filename, initial_balance=0):
+    def _create_new_sheet(self, filename, initial_balance=timedelta(0)):
         f = None
         try:
             wb = openpyxl.Workbook()
@@ -103,22 +103,25 @@ class NFSStorage(Storage):
             ws.title = "Daten"
             ws['A1'] = "Ausweisleser Daten"
 
-            ws['A2'] = "Zeitguthaben aus dem Vormonat (min)"
+            ws['A2'] = "Zeitguthaben aus dem Vormonat"
             ws['B2'] = initial_balance
+            ws['B2'].number_format = '[h]:mm'
 
-            ws['A3'] = "Soll-Stunden pro Schicht (min)"
-            ws['B3'] = 300  # 5 hours * 60 minutes
+            ws['A3'] = "Soll-Stunden pro Schicht"
+            ws['B3'] = timedelta(hours=5)
+            ws['B3'].number_format = '[h]:mm'
 
-            ws['A4'] = "Aktueller Laufender Saldo (min)"
-            ws['B4'] = f'=SUM($B$2, G6:G500)' # Formula to auto-update the running balance
+            ws['A4'] = "Aktueller Laufender Saldo"
+            ws['B4'] = f'=SUM($B$2, G6:G500)'
+            ws['B4'].number_format = '[h]:mm'
 
             # Headers for the data table
-            headers = ["Tag", "Ereignis", "Schichtbeginn", "Schichtende", "Schichtdauer (HH:MM)", "Tages-Soll (min)", "Tages-Nettoveränderung (min)", "Laufender Saldo (min)"]
-            ws.append(headers)
+            headers = ["Tag", "Ereignis", "Schichtbeginn", "Schichtende", "Schichtdauer", "Tages-Soll", "Tages-Nettoveränderung", "Laufender Saldo"]
+            header_row = ws.append(headers)
             
             # Make header bold
             bold_font = Font(bold=True)
-            for cell in ws[5]: # Headers are on row 5
+            for cell in ws[ws.max_row]:
                 cell.font = bold_font
 
             # Autosize columns
@@ -153,7 +156,7 @@ class NFSStorage(Storage):
         last_day_of_previous_month = first_day_of_current_month - timedelta(days=1)
         prev_month_filename = self._get_sheet_filename(person_name, last_day_of_previous_month)
 
-        initial_balance = 0
+        initial_balance = timedelta(0)
         if self.nfs.isfile(prev_month_filename):
             logging.info(f"Found previous month's sheet: {prev_month_filename}. Reading end of month balance.")
             f = None
@@ -161,12 +164,17 @@ class NFSStorage(Storage):
                 f = self.nfs.open(prev_month_filename, "rb")
                 file_content = f.read()
                 workbook_stream = BytesIO(file_content)
-                # Use data_only=True to read the calculated value of a formula
                 wb_data_only = openpyxl.load_workbook(workbook_stream, data_only=True)
                 ws_data_only = wb_data_only.active
                 balance_value = ws_data_only['B4'].value
-                if balance_value is not None:
-                    initial_balance = float(balance_value)
+                
+                if isinstance(balance_value, (int, float)):
+                    initial_balance = timedelta(minutes=balance_value)
+                elif isinstance(balance_value, time):
+                    initial_balance = timedelta(hours=balance_value.hour, minutes=balance_value.minute, seconds=balance_value.second)
+                elif isinstance(balance_value, timedelta):
+                    initial_balance = balance_value
+
                 logging.info(f"Balance from previous month is {initial_balance}")
 
             except Exception as e:
@@ -188,7 +196,6 @@ class NFSStorage(Storage):
             file_content = f_read.read()
             workbook_stream = BytesIO(file_content)
             wb = openpyxl.load_workbook(workbook_stream)
-
             ws = wb.active
 
             new_row_num = ws.max_row + 1
@@ -203,34 +210,27 @@ class NFSStorage(Storage):
             start_dt = datetime.fromtimestamp(shift_start_ts)
             end_dt = datetime.fromtimestamp(shift_end_ts)
             
-            day_str = start_dt.strftime('%Y-%m-%d')
-            start_time_str = start_dt.strftime('%H:%M')
-            end_time_str = end_dt.strftime('%H:%M')
-            event_str = "Arbeitsschicht"
-
-            shift_duration_minutes = action.get('shift_duration_min', 0)
+            shift_duration = end_dt - start_dt
+            target_for_day = timedelta(hours=5) # Should match 'B3' in the sheet
+            net_change = shift_duration - target_for_day
             
-            duration_hours = shift_duration_minutes // 60
-            duration_mins_rem = shift_duration_minutes % 60
-            duration_str = f"{duration_hours:02d}:{duration_mins_rem:02d}"
-
-            target_for_day = ws['B3'].value
-            net_change = shift_duration_minutes - target_for_day
-            
-            # Formula for the running balance in column H
             running_balance_formula = f"=SUM($B$2,G$6:G{new_row_num})"
 
             row_data = [
-                day_str,
-                event_str,
-                start_time_str,
-                end_time_str,
-                duration_str,
+                start_dt.date(),
+                "Arbeitsschicht",
+                start_dt.time(),
+                end_dt.time(),
+                shift_duration,
                 target_for_day,
                 net_change,
                 running_balance_formula
             ]
             ws.append(row_data)
+
+            # Set number format for new time/duration cells
+            for col_letter in ['C', 'D', 'E', 'F', 'G', 'H']:
+                ws[f'{col_letter}{new_row_num}'].number_format = '[h]:mm'
 
             # Autosize columns
             for column_cells in ws.columns:
